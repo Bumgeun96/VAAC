@@ -1,0 +1,68 @@
+{
+    "SparseHopper-v1":
+    {
+        "env":"SparseHopper-v1",
+        "n_steps": 1000,
+        "n_total_steps": 1000000,
+        "n_eval": 10,
+        "reward_scale": 5,
+        "buffer_size": 1000000,
+        "gamma": 0.99,
+        "tau": 0.005,
+        "batch_size": 256,
+        "learning_start": 1000,
+        "actor_lr": 0.0003,
+        "critic_lr": 0.001,
+        "policy_frequency": 2,
+        "target_network_frequency": 1,
+        "noise_clip": 0.5,
+        "alpha": 0.04,
+        "auto_tune": "True"
+    },
+    "SparseHalfCheetah-v1":
+    {
+        "env":"SparseHalfCheetah-v1",
+        "n_steps": 1000,
+        "n_total_steps": 1000000,
+        "n_eval": 10,
+        "reward_scale": 5,
+        "buffer_size": 1000000,
+        "gamma": 0.99,
+        "tau": 0.005,
+        "batch_size": 256,
+        "learning_start": 1000,
+        "actor_lr": 0.0003,
+        "critic_lr": 0.001,
+        "policy_frequency": 2,
+        "target_network_frequency": 1,
+        "noise_clip": 0.5,
+        "alpha": 0.04,
+        "auto_tune": "True"
+    },
+    "ContinuousGridWorld":
+    {
+        "env":"ContinuousGridWorld",
+        "n_steps": 1000,
+        "n_total_steps": 300000,
+        "n_iter_seed": 30,
+        "reward_scale": 0,
+        "buffer_size": 1000000,
+        "gamma": 0.99,
+        "tau": 0.005,
+        "batch_size": 256,
+        "learning_start": 1000,
+        "actor_lr": 0.0003,
+        "critic_lr": 0.001,
+        "policy_frequency": 2,
+        "target_network_frequency": 1,
+        "noise_clip": 0.5,
+        "alpha": 0.05,
+        "mda_alpha": 0.05,
+        "im_alpha": 0.05,
+        "cliping_discriminator": 0.0001,
+        "d_step": 1,
+        "auto_tune": 0,
+        "algorithm": "iaac",
+        "map": 1
+    }
+}
