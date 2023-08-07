@@ -72,6 +72,7 @@ def is_in_square(center,start_point,end_point):
 #     return agent_location
 
 def checking_physics(agent_location,previous_agent_location,boundary_points):
+    end_point = agent_location
     for p in boundary_points:
-        end_point = is_cross_line(previous_agent_location,agent_location,p[0],p[1])
+        end_point = is_cross_line(previous_agent_location,end_point,p[0],p[1])
     return end_point
