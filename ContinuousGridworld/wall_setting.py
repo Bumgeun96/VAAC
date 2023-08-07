@@ -1,3 +1,5 @@
+import random
+
 def map_1():
     wall = []
     for i in range(101):
@@ -18,7 +20,9 @@ def map_1():
         door.append((i,51))
     for d in door:
         wall.remove(d)
-    return wall
+    points = wall_line_detect(wall)
+    line_points = making_lines(points)
+    return wall, line_points
 
 def map_2():
     wall = []
@@ -71,4 +75,49 @@ def map_2():
         door.append((i,77))
     for d in door:
         wall.remove(d)
-    return wall
+    points = wall_line_detect(wall)
+    line_points = making_lines(points)
+    return wall, line_points
+
+def wall_line_detect(walls):
+    wall_edges = []
+    for wall in walls:
+        x,y =  wall
+        p1 = (x+0.5,y+0.5)
+        p2 = (x-0.5,y+0.5)
+        p3 = (x-0.5,y-0.5)
+        p4 = (x+0.5,y-0.5)
+        wall_edges.append([p1,p2,p3,p4])
+    points = []
+    while len(wall_edges) != 0:
+        parts = []
+        edge = random.choice(wall_edges)
+        parts = [edge]
+        wall_edges.remove(edge)
+        for part in parts:
+            for item in part:
+                for edge in wall_edges:
+                    if item in edge:
+                        parts.append(edge)
+                        wall_edges.remove(edge)
+        result_list = [item for sublist in parts for item in sublist]
+        point =[]
+        for element in result_list:
+            if result_list.count(element) % 2 == 0:
+                pass
+            else:
+                point.append(element)
+        points.append(list(set(point)))
+    return points
+
+def making_lines(boundary_points):
+    line_points = []
+    for boundary_point in boundary_points:
+        boundary_point= [list(i) for i in boundary_point]
+        boundary_point = sorted(boundary_point, key=lambda x: (x[1], x[0]))
+        result = [boundary_point[i:i+2] for i in range(0, len(boundary_point), 2)]
+        line_points += result
+        boundary_point = sorted(boundary_point, key=lambda x: (x[0], x[1]))
+        result = [boundary_point[i:i+2] for i in range(0, len(boundary_point), 2)]
+        line_points += result
+    return line_points

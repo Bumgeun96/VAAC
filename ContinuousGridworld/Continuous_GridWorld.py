@@ -28,9 +28,9 @@ class ContinuousGridWorld:
         
         # Set wall
         if map == 1:
-            self.wall = map_1()
+            self.wall, self.boundary_points = map_1()
         elif map == 2:
-            self.wall = map_2()
+            self.wall, self.boundary_points = map_2()
 
 
     def get_reward(self,no_reward = False):        
@@ -85,7 +85,7 @@ class ContinuousGridWorld:
             self.agent_location = [x_new,y_new]
         
         reward, terminal = self.get_reward(no_reward=True)
-        self.agent_location = checking_physics(self.agent_location,previous_agent_location,self.wall)
+        self.agent_location = checking_physics(self.agent_location,previous_agent_location,self.boundary_points)
         return self.agent_location, reward, terminal
 
     def reset(self):

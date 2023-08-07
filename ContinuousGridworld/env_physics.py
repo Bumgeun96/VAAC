@@ -61,12 +61,17 @@ def is_in_square(center,start_point,end_point):
     else:
         return end_point
     
-def checking_physics(agent_location,previous_agent_location,wall):
-    walls = find_near_wall(agent_location,wall)
-    if len(walls) == 0:
-        return agent_location
-    for wall in walls:
-        agent_location = is_in_square([wall[0],wall[1]],previous_agent_location,agent_location)
-    for wall in walls:
-        agent_location = is_in_square([wall[0],wall[1]],previous_agent_location,agent_location)
-    return agent_location
+# def checking_physics(agent_location,previous_agent_location,wall):
+#     walls = find_near_wall(agent_location,wall)
+#     if len(walls) == 0:
+#         return agent_location
+#     for wall in walls:
+#         agent_location = is_in_square([wall[0],wall[1]],previous_agent_location,agent_location)
+#     for wall in walls:
+#         agent_location = is_in_square([wall[0],wall[1]],previous_agent_location,agent_location)
+#     return agent_location
+
+def checking_physics(agent_location,previous_agent_location,boundary_points):
+    for p in boundary_points:
+        end_point = is_cross_line(previous_agent_location,agent_location,p[0],p[1])
+    return end_point
