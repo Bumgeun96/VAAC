@@ -7,7 +7,7 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 def visualization(env,data,v_data):
     row_max = env.row_max
     col_max = env.col_max
-    fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+    fig, ax = plt.subplots(1, 2, figsize=(20, 8))
     
     ax[0].set_xlim((-0.5, col_max - 0.5))
     ax[0].set_ylim((row_max - 0.5, -0.5))
@@ -29,12 +29,12 @@ def visualization(env,data,v_data):
     im = ax[1].imshow(v_data,vmax = 10,cmap='hot')
     fig.colorbar(im, ax=ax[1], shrink=1)
     
-    # walls = np.zeros([row_max, col_max])
-    # for w in env.wall:
-    #     if w != (0, env.col_max - 1):
-    #         walls[w] = 1
+    walls = np.zeros([row_max, col_max])
+    for w in env.wall:
+        if w != (0, env.col_max - 1):
+            walls[w] = 1
 
-    # im = ax[1].imshow(walls,cmap='Blues',alpha=0.3)
+    im = ax[1].imshow(walls,cmap='Blues',alpha=0.5)
     
     fig.savefig("RND.pdf")
 

@@ -88,9 +88,10 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
             if terminal or timestep >= episode_length:
                 environment.reset()
             returns.append(reward)
-        table = agent.get_rnd_error()
-        v_table = agent.get_visiting_time()
-        visualization(environment,table,v_table)
+        
+        # table = agent.get_rnd_error()
+        # v_table = agent.get_visiting_time()
+        # visualization(environment,table,v_table)
         print('Training:',
               round(100*(seed*num_episodes*episode_length+total_step)/(num_episodes*episode_length*args.n_iter_seed),4),
               '%|',
