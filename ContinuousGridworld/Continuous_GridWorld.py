@@ -31,10 +31,10 @@ class ContinuousGridWorld:
             self.wall, self.boundary_points = map_1()
         elif map == 2:
             self.wall, self.boundary_points = map_2()
+        print('Map Physics are loaded.')
 
 
-    def get_reward(self,no_reward = False):        
-
+    def get_reward(self,no_reward = False):
         reward = -1
         terminal = False
         if no_reward:
