@@ -29,6 +29,13 @@ def visualization(env,data,v_data):
     im = ax[1].imshow(v_data,vmax = 10,cmap='hot')
     fig.colorbar(im, ax=ax[1], shrink=1)
     
+    # walls = np.zeros([row_max, col_max])
+    # for w in env.wall:
+    #     if w != (0, env.col_max - 1):
+    #         walls[w] = 1
+
+    # im = ax[1].imshow(walls,cmap='Blues',alpha=0.3)
+    
     fig.savefig("RND.pdf")
 
 def plot_visiting(ax,fig,env,visiting_time):
