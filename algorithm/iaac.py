@@ -184,7 +184,10 @@ class IAAC_agent():
         visit_table = np.zeros((self.env_row_max, self.env_col_max))
         for row in range(self.env_row_max):
             for col in range(self.env_col_max):
-                visit_table[row][col] = self.visit[(row,col)]
+                if (row,col) in self.env.wall:
+                    visit_table[row][col] = 0
+                else:
+                    visit_table[row][col] = self.visit[(row,col)]
         return visit_table
     
     def get_rnd_error(self):
