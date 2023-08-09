@@ -49,6 +49,14 @@ def plot_visiting(ax,fig,env,visiting_time):
             walls[w] = 0
     visiting_time += walls
     im = ax.imshow(visiting_time, vmax = 10,cmap='hot')
+    
+    walls = np.zeros([row_max, col_max])
+    for w in env.wall:
+        if w != (0, env.col_max - 1):
+            walls[w] = 1
+
+    im = ax[1].imshow(walls,cmap='Blues',alpha=0.5)
+    
     fig.colorbar(im, ax=ax, shrink=1)
     
 def draw_env(env, savefig=True):
