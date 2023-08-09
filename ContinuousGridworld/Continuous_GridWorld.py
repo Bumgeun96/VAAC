@@ -28,8 +28,10 @@ class ContinuousGridWorld:
         
         # Set wall
         if map == 1:
+            self.map = 1
             self.wall, self.boundary_points = map_1()
         elif map == 2:
+            self.map = 2
             self.wall, self.boundary_points = map_2()
         print('Map Physics are loaded.')
 
