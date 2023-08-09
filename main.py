@@ -106,6 +106,14 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
         reward_per_episode.append(np.mean(returns))
     return reward_per_episode,visiting_times,n_visitations
 
+def loading_algorithm(env,args):
+    if args.algorithm == 'sac':
+        agent = SAC_agent(env,args)
+    elif args.algorithm == 'msac':
+        agent = MSAC_agent(env,args)
+    elif args.algorithm == 'iaac':
+        agent = IAAC_agent(env,args)
+    return agent
 
 def main(args):
     num_episodes = math.ceil(args.n_total_steps/args.n_steps)
@@ -119,12 +127,7 @@ def main(args):
     visiting_plots = []
     for i in range(args.n_iter_seed):
         args.seed += i
-        if args.algorithm == 'sac':
-            agent = SAC_agent(env,args)
-        elif args.algorithm == 'msac':
-            agent = MSAC_agent(env,args)
-        elif args.algorithm == 'iaac':
-            agent = IAAC_agent(env,args)
+        agent = loading_algorithm(env,args)
         reward_per_episode,visitings,visiting_plot = play(environment = env,
                                                             agent = agent,
                                                             num_episodes = num_episodes,
@@ -138,7 +141,6 @@ def main(args):
     visitings = np.sum(v,axis=0)
     fig, ax = plt.subplots(1, 3, figsize=(20, 8))
     per_name = ["5k", "50k", '300k']
-    print(visitings)
     for i,t in enumerate(visitings):
         try:
             plot_visiting(ax[i],fig,env,t)

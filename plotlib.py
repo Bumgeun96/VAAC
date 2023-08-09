@@ -61,7 +61,10 @@ def plot_visiting(ax,fig,env,visiting_time):
     
 def draw_env(env, savefig=True):
     plt.figure(figsize=(env.row_max, env.col_max))
-    plt.title('Grid World', fontsize=20)
+    if env.map == 1:
+        plt.title('Continuous 4-Room Maze', fontsize=200)
+    elif env.map == 2:
+        plt.title('Continuous 16-Room Maze', fontsize=200)
 
     # Placing the initial state on a grid for illustration
     initials = np.zeros([env.row_max, env.col_max])
@@ -74,32 +77,17 @@ def draw_env(env, savefig=True):
             walls[w] = 4
 
     # Make a discrete color bar with labels
-    labels = ['States', 'Initial\nState', 'Wall\nStates']
     colors = {0: '#F9FFA4', 1: '#B4FF9F', 2: '#000000'}
-
     cm = ListedColormap([colors[x] for x in colors.keys()])
-    norm_bins = np.sort([*colors.keys()]) + 0.5
-    norm_bins = np.insert(norm_bins, 0, np.min(norm_bins) - 1.0)
-    ## Make normalizer and formatter
-    norm = BoundaryNorm(norm_bins, len(labels), clip=True)
-    fmt = matplotlib.ticker.FuncFormatter(lambda x, pos: labels[norm(x)])
-
-    diff = norm_bins[1:] - norm_bins[:-1]
-    tickz = norm_bins[:-1] + diff / 2
-    plt.imshow(initials + walls, cmap=cm, norm=norm)
-    plt.colorbar(format=fmt, ticks=tickz)
-
+    plt.imshow(initials + walls, cmap=cm)
+    plt.tick_params(axis='both', labelsize=150)
     plt.xlim((-0.5, env.col_max - 0.5))
     plt.ylim((env.row_max - 0.5, -0.5))
-    plt.yticks(np.linspace(env.row_max - 0.5, -0.5, env.row_max + 1))
-    plt.xticks(np.linspace(-0.5, env.col_max - 0.5, env.col_max + 1))
-    plt.grid(color='k')
-    plt.text(env.initial_location[1], env.initial_location[0], 'O', ha='center', va='center', fontsize=40)
 
     if savefig:
         if env.map == 1:
             plt.savefig('./map_image/Continuous4RoomMaze.png')
-        if env.map == 2:
+        elif env.map == 2:
             plt.savefig('./map_image/Continuous16RoomMaze.png')
         
 def save_pickle(data,name):
