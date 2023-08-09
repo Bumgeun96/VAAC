@@ -136,7 +136,7 @@ def main(args):
     save_pickle(visiting_plots, 'map:'+str(args.map)+","+args.algorithm + ',visitation_plot')
     v = np.array(v)
     visitings = np.sum(v,axis=0)
-    fig, ax = plt.subplots(1, 3, figsize=(10, 4))
+    fig, ax = plt.subplots(1, 3, figsize=(20, 8))
     per_name = ["5k", "50k", '300k']
     print(visitings)
     for i,t in enumerate(visitings):
@@ -145,7 +145,7 @@ def main(args):
             ax[i].set_title(per_name[i], size=10)
         except:
             pass
-    fig.savefig("map:"+str(args.map)+","+args.algorithm+",visiting_time.pdf")
+    fig.savefig("./result/map:"+str(args.map)+","+args.algorithm+",visiting_time.pdf")
     
     # Make learning curve
     plt.figure()

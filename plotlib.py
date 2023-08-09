@@ -97,7 +97,10 @@ def draw_env(env, savefig=True):
     plt.text(env.initial_location[1], env.initial_location[0], 'O', ha='center', va='center', fontsize=40)
 
     if savefig:
-        plt.savefig('./gridworld.png')
+        if env.map == 1:
+            plt.savefig('./map_image/Continuous4RoomMaze.png')
+        if env.map == 2:
+            plt.savefig('./map_image/Continuous16RoomMaze.png')
         
 def save_pickle(data,name):
     with open("./pickle_file/"+name+".pickle","wb") as fw:
