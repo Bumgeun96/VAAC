@@ -1,8 +1,7 @@
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
-from matplotlib.colors import ListedColormap, BoundaryNorm
+from matplotlib.colors import ListedColormap
 
 def visualization(env,data,v_data):
     row_max = env.row_max
