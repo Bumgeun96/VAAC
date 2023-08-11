@@ -32,6 +32,7 @@ class SAC_agent():
         self.cliping_discriminator = args.cliping_discriminator
         self.d_step = args.d_step
         self.global_step = 0
+        self.env = environment
         self.action_shape = environment.action_space.shape[0]
         
         # Set a random seed
@@ -187,7 +188,10 @@ class SAC_agent():
         visit_table = np.zeros((self.env_row_max, self.env_col_max))
         for row in range(self.env_row_max):
             for col in range(self.env_col_max):
-                visit_table[row][col] = self.visit[(row,col)]
+                if (row,col) in self.env.wall:
+                    visit_table[row][col] = 0
+                else:
+                    visit_table[row][col] = self.visit[(row,col)]
         return visit_table
     
     def count_visitation(self):

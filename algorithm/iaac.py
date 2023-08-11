@@ -9,6 +9,8 @@ import torch.optim as optim
 from rl_utils.network import SoftQNetwork,Actor,RNDModel,EnvNet,AdventureNet
 from rl_utils.replay_memory import ReplayMemory as memory
 
+from .utils.algorithm_utils import count_visiting, get_visiting_time, count_visitation
+
 
 class IAAC_agent():
     def __init__(self,environment,args):
