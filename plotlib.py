@@ -15,7 +15,7 @@ def visualization(env,data,v_data):
         if w != (0, env.col_max - 1):
             walls[w] = 0
     data += walls
-    im = ax[0].imshow(np.log(data))
+    im = ax[0].imshow(data)
     fig.colorbar(im, ax=ax[0], shrink=1)
     
     ax[1].set_xlim((-0.5, col_max - 0.5))
@@ -32,6 +32,8 @@ def visualization(env,data,v_data):
     for w in env.wall:
         if w != (0, env.col_max - 1):
             walls[w] = 1
+        else:
+            walls[w] = None
 
     im = ax[1].imshow(walls,cmap='Blues',alpha=0.5)
     
@@ -43,14 +45,13 @@ def plot_visiting(ax,fig,env,visiting_time):
     ax.set_xlim((-0.5, col_max - 0.5))
     ax.set_ylim((row_max - 0.5, -0.5))
     im = ax.imshow(visiting_time, vmax = 10,cmap='hot')
-    fig.colorbar(im, ax, shrink=1)
+    fig.colorbar(im, ax=ax, shrink=1)
     
     walls = np.zeros([row_max, col_max])
     for w in env.wall:
         if w != (0, env.col_max - 1):
             walls[w] = 1
-
-    im = ax.imshow(walls,cmap='Blues',alpha=0.5)
+    ax.imshow(walls,cmap='Blues',alpha=0.5)
     
 def draw_env(env, savefig=True):
     plt.figure(figsize=(env.row_max, env.col_max))

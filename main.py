@@ -5,6 +5,7 @@ from ContinuousGridworld.Continuous_GridWorld import ContinuousGridWorld
 from algorithm.sac import SAC_agent
 from algorithm.msac import MSAC_agent
 from algorithm.iaac import IAAC_agent
+from algorithm.random_action import Random_action_agent
 from distutils.util import strtobool
 from plotlib import plot_visiting, draw_env, visualization, save_pickle
 
@@ -33,6 +34,7 @@ def parse_args():
     parser.add_argument("--auto_tune", type=lambda x:bool(strtobool(x)), default=False, nargs="?", const=True)
     parser.add_argument('--mda_alpha',type=float,default=0.2)
     parser.add_argument('--im_alpha',type=float,default=0.2)
+    parser.add_argument('--im_beta',type=float,default=0.2)
     parser.add_argument('--cliping_discriminator',type=float,default=0.0001)
     parser.add_argument('--d_step',type=int,default=1)
     parser.add_argument("--algo", type=bool, default=False)
@@ -56,13 +58,12 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
         terminal = False
         while timestep < episode_length and terminal != True:
             with torch.no_grad():
-                current_state = 10*(torch.Tensor(environment.agent_location)-state_bias)/state_scale
+                current_state = torch.Tensor(environment.agent_location)
                 action = agent.action(current_state)
                 action = np.array(action.to('cpu'))
                 next_state, reward, terminal = environment.make_step(action,0)
             agent.count_visiting(next_state)
             next_state = torch.Tensor(next_state)
-            next_state = 10*(next_state-state_bias)/state_scale
             timestep += 1
             total_step += 1
             if total_step % 10 == 0:
@@ -88,7 +89,11 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
             if terminal or timestep >= episode_length:
                 environment.reset()
             returns.append(reward)
-        
+            
+        # fig, ax = plt.subplots(1, 3, figsize=(20, 8))
+        # t = agent.get_visiting_time()
+        # plot_visiting(ax[0],fig,environment,t)
+        # fig.savefig("./result/map:1,test,visiting_time.pdf")
         # table = agent.get_rnd_error()
         # v_table = agent.get_visiting_time()
         # visualization(environment,table,v_table)
@@ -113,6 +118,8 @@ def loading_algorithm(env,args):
         agent = MSAC_agent(env,args)
     elif args.algorithm == 'iaac':
         agent = IAAC_agent(env,args)
+    elif args.algorithm == 'random':
+        agent = Random_action_agent(env,args)
     return agent
 
 def main(args):
@@ -178,6 +185,7 @@ if __name__ == "__main__":
     args.auto_tune = bool(parameters["ContinuousGridWorld"]['auto_tune'])
     args.mda_alpha = parameters["ContinuousGridWorld"]['mda_alpha']
     args.im_alpha = parameters["ContinuousGridWorld"]['im_alpha']
+    args.im_beta = parameters["ContinuousGridWorld"]['im_beta']
     args.cliping_discriminator = parameters["ContinuousGridWorld"]['cliping_discriminator']
     args.d_step = int(parameters["ContinuousGridWorld"]['d_step'])
     args.algorithm = parameters["ContinuousGridWorld"]["algorithm"]

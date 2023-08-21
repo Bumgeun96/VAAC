@@ -100,10 +100,20 @@ class Actor(nn.Module):
 class EnvNet(nn.Module):
     def __init__(self, env):
         super().__init__()
+        self.env = env
         self.fc1 = nn.Linear(env.observation_space.shape[0]+env.action_space.shape[0], 256)
         self.fc2 = nn.Linear(256, 256)
         self.mean = nn.Linear(256, env.observation_space.shape[0])
         self.std = nn.Linear(256, env.observation_space.shape[0])
+        
+        nn.init.uniform_(self.fc1.weight, -0.01, 0.01)
+        nn.init.uniform_(self.fc1.bias, -0.01, 0.01)
+        nn.init.uniform_(self.fc2.weight, -0.01, 0.01)
+        nn.init.uniform_(self.fc2.bias, -0.01, 0.01)
+        nn.init.uniform_(self.mean.weight, -0.01, 0.01)
+        nn.init.uniform_(self.mean.bias, -0.01, 0.01)
+        nn.init.uniform_(self.std.weight, -0.01, 0.01)
+        nn.init.uniform_(self.std.bias, -0.01, 0.01)
 
     def forward(self, x, a):
         x = torch.cat([x, a], 1)
@@ -116,15 +126,20 @@ class EnvNet(nn.Module):
         std = log_std.exp()
         normal = torch.distributions.Normal(mean, std)
         x = normal.rsample()
-        x = torch.tanh(x)
+        x = 100*0.5*(torch.tanh(x)+1)
         return x
 
 class RNDModel(nn.Module):
     def __init__(self, env):
         super(RNDModel, self).__init__()
+        self.state_scale = torch.tensor(env.observation_space.high-env.observation_space.low).to('cuda')
+        self.state_bias = (torch.tensor(env.observation_space.high-env.observation_space.low)/2).to('cuda')
+        self.scaling_coef = 5
         
         self.predictor = nn.Sequential(
             nn.Linear(env.observation_space.shape[0], 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.ReLU(),
@@ -136,6 +151,8 @@ class RNDModel(nn.Module):
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
             nn.Linear(256, 32)
         )
         
@@ -144,14 +161,16 @@ class RNDModel(nn.Module):
             param.requires_grad = False
 
     def forward(self, next_obs):
+        # normalization [-self.scaling_coef, self.scaling_coef]
+        next_obs = 2*self.scaling_coef*(next_obs-self.state_bias)/self.state_scale
         target_feature = self.target(next_obs)
         predict_feature = self.predictor(next_obs)
 
-        return predict_feature, target_feature
+        return predict_feature, target_feature.detach()
     
     def rnd_bonus(self,s):
         predict, target = self(s)
-        rnd_error = ((predict-target.detach())**2).sum(axis=-1,keepdim=True)
+        rnd_error = ((target+predict)**2).sum(axis=-1,keepdim=True)
         return rnd_error
 
 class AdventureNet(nn.Module):
@@ -216,6 +235,7 @@ class AdventureNet(nn.Module):
         mean, log_std = self(x)
         std = log_std.exp()
         normal = torch.distributions.Normal(mean, std)
+        entropy = self.gaussian_entropy(std[0],std[1])
         x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
         y_t = torch.tanh(x_t)
         log_prob = normal.log_prob(x_t)
@@ -223,3 +243,8 @@ class AdventureNet(nn.Module):
         log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
         log_prob = log_prob.sum(-1, keepdim=True)
         return -log_prob
+        return entropy
+    
+    def gaussian_entropy(self,std_x, std_y):
+        entropy = 0.5 * torch.log(2 * torch.exp(torch.tensor(1)) * std_x**2 * std_y**2)
+        return entropy

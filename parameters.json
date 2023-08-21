@@ -59,10 +59,11 @@
         "alpha": 0.05,
         "mda_alpha": 0.05,
         "im_alpha": 0.05,
+        "im_beta": 0.05,
         "cliping_discriminator": 0.0001,
         "d_step": 1,
         "auto_tune": 0,
-        "algorithm": "iaac",
+        "algorithm": "sac",
         "map": 1
     }
 }

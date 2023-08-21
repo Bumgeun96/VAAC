@@ -9,10 +9,10 @@ import torch.optim as optim
 from rl_utils.network import SoftQNetwork,Actor,RNDModel,EnvNet,AdventureNet
 from rl_utils.replay_memory import ReplayMemory as memory
 
-# from .utils.algorithm_utils import count_visiting, get_visiting_time, count_visitation
+from .utils.algorithm_utils import count_visiting, get_visiting_time, count_visitation
 
 
-class IAAC_agent():
+class agent():
     def __init__(self,environment,args):
         # Initialize with args
         self.seed = args.seed
@@ -25,14 +25,10 @@ class IAAC_agent():
         self.critic_lr = args.critic_lr
         self.policy_frequency = args.policy_frequency
         self.target_network_frequency = args.target_network_frequency
-        self.alpha = args.alpha
-        self.im_alpha = args.im_alpha
-        self.im_beta = args.im_beta
-        self.auto_tune = args.auto_tune
         self.global_step = 0
         self.env = environment
         self.action_shape = environment.action_space.shape[0]
-        self.rnd_batch = []
+        self.algorithm = args.algorithm
         
         # Set a random seed
         random.seed(self.seed)
@@ -47,7 +43,6 @@ class IAAC_agent():
             self.env_col_max = environment.col_max
         except:
             pass
-        
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
@@ -72,7 +67,7 @@ class IAAC_agent():
         
         self.rnd = RNDModel(environment).to(self.device)
         self.env_net = EnvNet(environment).to(self.device)
-        self.rnd_optimizer = optim.Adam(list(self.rnd.parameters()), lr=0.0001, weight_decay = 0.95)
+        self.rnd_optimizer = optim.Adam(list(self.rnd.parameters()), lr=0.0001)
         self.env_net_optimizer = optim.Adam(list(self.env_net.parameters()), lr=0.001)
         
         self.imaginary_actor = AdventureNet(environment).to(self.device)
@@ -93,26 +88,20 @@ class IAAC_agent():
     
     def store_experience(self,state,action,reward,next_state,terminal):
         self.replay_memory.add(state,action,reward,next_state,terminal)
-        # self.episode_rnd_training(next_state,terminal)
         
     def soft_update(self, local_model, target_model):
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*target_param.data)
     
-    def episode_rnd_training(self,state,termination):
-        self.rnd_batch.append(state)
-        if termination:
-            for _ in range(10):
-                self.rnd_training(torch.stack(self.rnd_batch,dim=0).to(self.device))
-            self.rnd_batch = []
-        
     def rnd_training(self,state):
-        rnd_loss = self.rnd.rnd_bonus(state).sum()
+        predicted_feature, target_feature = self.rnd(state)
+        rnd_loss = ((predicted_feature-target_feature.detach())**2).sum(axis=-1).mean()
+        self.rnd_optimizer.zero_grad()
         rnd_loss.backward()
         self.rnd_optimizer.step()
     
     def training(self):
-        if self.global_step > self.batch_size:
+        if self.global_step > self.learning_start:
             experiences = self.replay_memory.sample()
             states, actions, rewards, next_states, terminations = experiences
             states = states.to(self.device)
@@ -121,18 +110,15 @@ class IAAC_agent():
             next_states = next_states.to(self.device)
             terminations = terminations.to(self.device)
             
+            # rnd training
+            self.rnd_training(next_states)
+            
             # env prediction
             predicted_next_states= self.env_net(states,actions)
             env_loss = F.mse_loss(predicted_next_states,next_states)
             self.env_net_optimizer.zero_grad()
             env_loss.backward()
             self.env_net_optimizer.step()
-            
-        if self.global_step > self.learning_start:
-            
-            # rnd training
-            # if random.random()<0.1:
-            self.rnd_training(next_states)
             
             #imaginary action
             im_action, log_im_action, _ = self.imaginary_actor.imaginary_action(states)
@@ -149,7 +135,7 @@ class IAAC_agent():
                 _, im_next_state_log_pi, _ = self.imaginary_actor.imaginary_action(next_states)
                 q1_target = self.critic_target1(next_states,next_actions)
                 q2_target = self.critic_target2(next_states,next_actions)
-                next_Q = torch.min(q1_target,q2_target) + self.im_beta*im_next_state_log_pi
+                next_Q = torch.min(q1_target,q2_target) + self.im_alpha*im_next_state_log_pi
                 target = rewards+(1-terminations)*self.gamma*next_Q
 
             q1 = self.critic1(states,actions)
@@ -203,32 +189,25 @@ class IAAC_agent():
         return visit_table
     
     def get_rnd_error(self):
-        visiting_table = torch.tensor(self.get_visiting_time())
-        nonzero_indices = torch.nonzero(visiting_table).tolist()
+        scale = (self.env.observation_space.high-self.env.observation_space.low)
+        bias = (self.env.observation_space.high-self.env.observation_space.low)/2
         rnd_table = np.zeros((self.env_row_max, self.env_col_max))
         for row in range(self.env_row_max):
             for col in range(self.env_col_max):
-                state = torch.tensor([row,col],dtype = torch.float32).cuda()
+                state = torch.tensor(10*([row,col]-bias)/scale,dtype = torch.float32).cuda()
                 rnd_error = self.rnd.rnd_bonus(state)
-                # rnd_table[row][col] = rnd_error
-                if [row,col] in nonzero_indices:
-                    rnd_table[row][col] = rnd_error
-                else:
-                    rnd_table[row][col] = None
+                rnd_table[row][col] = rnd_error
         return rnd_table
     
     def get_entropy(self):
-        visiting_table = torch.tensor(self.get_visiting_time())
-        nonzero_indices = torch.nonzero(visiting_table).tolist()
+        scale = (self.env.observation_space.high-self.env.observation_space.low)
+        bias = (self.env.observation_space.high-self.env.observation_space.low)/2
         entropy_table = np.zeros((self.env_row_max, self.env_col_max))
         for row in range(self.env_row_max):
             for col in range(self.env_col_max):
-                state = torch.tensor([row,col],dtype = torch.float32).cuda()
+                state = torch.tensor(10*([row,col]-bias)/scale,dtype = torch.float32).cuda()
                 entropy = self.imaginary_actor.get_entropy(state).detach().cpu().item()
-                if [row,col] in nonzero_indices:
-                    entropy_table[row][col] = entropy
-                else:
-                    entropy_table[row][col] = None
+                entropy_table[row][col] = entropy
         return entropy_table
     
     def count_visitation(self):
