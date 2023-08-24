@@ -88,8 +88,19 @@ class ContinuousGridWorld:
         
         reward, terminal = self.get_reward(no_reward=True)
         self.agent_location = checking_physics(self.agent_location,previous_agent_location,self.boundary_points)
-        return self.agent_location, reward, terminal
-
+        
+        #Normalizing Observations
+        observation = self.normalize(self.agent_location)
+        return observation, reward, terminal
+    
+    def normalize(self,observations):
+        O_normalized = 2*(observations - (0.5*self.observation_space.high[0]))/(self.observation_space.high[0]-self.observation_space.low[0])
+        return O_normalized
+    
+    def r_normalize(self,normalized):
+        observations = (self.observation_space.high[0]-self.observation_space.low[0])*normalized/2+(0.5*self.observation_space.high[0])
+        return observations
+    
     def reset(self):
         self.agent_location = self.initial_location
         self.n_steps = 0
