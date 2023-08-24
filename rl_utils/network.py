@@ -90,13 +90,6 @@ class Actor(nn.Module):
         mean = torch.tanh(mean) * self.action_scale + self.action_bias
         return action, log_prob, mean
     
-    def get_entropy(self,x):
-        _, log_std = self(x)
-        std = log_std.exp()
-        entropy = (1/2) * torch.log((2*3.14159265 * 2.71828)**2 * (std[0]**2 * std[1]**2))
-        # entropy = 0.5*(torch.log(2*3.14159265*std**2)+1)
-        return entropy
-    
 class EnvNet(nn.Module):
     def __init__(self, env):
         super().__init__()
@@ -126,7 +119,7 @@ class EnvNet(nn.Module):
         std = log_std.exp()
         normal = torch.distributions.Normal(mean, std)
         x = normal.rsample()
-        x = 100*0.5*(torch.tanh(x)+1)
+        x = torch.tanh(x)
         return x
 
 class RNDModel(nn.Module):
@@ -134,8 +127,8 @@ class RNDModel(nn.Module):
         super(RNDModel, self).__init__()
         self.state_scale = torch.tensor(env.observation_space.high-env.observation_space.low).to('cuda')
         self.state_bias = (torch.tensor(env.observation_space.high-env.observation_space.low)/2).to('cuda')
-        self.scaling_coef = 5
-        
+        self.scaling_coef = 3
+        self.obs = env.observation_space.shape[0]
         self.predictor = nn.Sequential(
             nn.Linear(env.observation_space.shape[0], 256),
             nn.ReLU(),
@@ -156,24 +149,40 @@ class RNDModel(nn.Module):
             nn.Linear(256, 32)
         )
         
+        self.initial_weights = self.predictor.state_dict()
+        self.soft_weights = self.predictor.state_dict()
+        
         # Set target parameters as untrainable
         for param in self.target.parameters():
             param.requires_grad = False
 
     def forward(self, next_obs):
         # normalization [-self.scaling_coef, self.scaling_coef]
-        next_obs = 2*self.scaling_coef*(next_obs-self.state_bias)/self.state_scale
+        # next_obs = 2*self.scaling_coef*(next_obs-self.state_bias)/self.state_scale
         target_feature = self.target(next_obs)
         predict_feature = self.predictor(next_obs)
-
         return predict_feature, target_feature.detach()
     
-    def rnd_bonus(self,s):
+    def rnd_bonus(self,s,normalize = True):
         predict, target = self(s)
         rnd_error = ((target+predict)**2).sum(axis=-1,keepdim=True)
+        if normalize:
+            rnd_error = (rnd_error-rnd_error.mean())/rnd_error.std()
         return rnd_error
+    
+    def rnd_reset(self):
+        self.predictor.load_state_dict(self.initial_weights)
+        
+    def save_weights(self):
+        self.soft_weights = self.predictor.state_dict()
+    
+    def soft_update(self):
+        new_state_dict = {}
+        for key in self.predictor.state_dict():
+            new_state_dict[key] = 0.999*self.soft_weights[key].cuda()+0.001*self.predictor.state_dict()[key]
+        self.predictor.load_state_dict(new_state_dict)
 
-class AdventureNet(nn.Module):
+class Virtual_Actor(nn.Module):
     def __init__(self, env):
         super().__init__()
         self.fc1 = nn.Linear(env.observation_space.shape[0], 256)
@@ -210,7 +219,7 @@ class AdventureNet(nn.Module):
 
         return mean, log_std
 
-    def imaginary_action(self, x, actor_action=None):
+    def virtual_action(self, x, actor_action=None):
         mean, log_std = self(x)
         std = log_std.exp()
         normal = torch.distributions.Normal(mean, std)

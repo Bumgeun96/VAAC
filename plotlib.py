@@ -3,30 +3,34 @@ import numpy as np
 import pickle
 from matplotlib.colors import ListedColormap
 
-def visualization(env,data,v_data):
+def visualization(env,Q,rnd,entropy,v_data):
     row_max = env.row_max
     col_max = env.col_max
-    fig, ax = plt.subplots(1, 2, figsize=(20, 8))
+    fig, ax = plt.subplots(2, 2, figsize=(20, 16))
     
-    ax[0].set_xlim((-0.5, col_max - 0.5))
-    ax[0].set_ylim((row_max - 0.5, -0.5))
-    walls = 0.000*np.ones([row_max, col_max])
-    for w in env.wall:
-        if w != (0, env.col_max - 1):
-            walls[w] = 0
-    data += walls
-    im = ax[0].imshow(data)
-    fig.colorbar(im, ax=ax[0], shrink=1)
     
-    ax[1].set_xlim((-0.5, col_max - 0.5))
-    ax[1].set_ylim((row_max - 0.5, -0.5))
-    walls = 0.000*np.ones([row_max, col_max])
-    for w in env.wall:
-        if w != (0, env.col_max - 1):
-            walls[w] = 0
-    v_data += walls
-    im = ax[1].imshow(v_data,vmax = 10,cmap='hot')
-    fig.colorbar(im, ax=ax[1], shrink=1)
+    ax[0][0].set_xlim((-0.5, col_max - 0.5))
+    ax[0][0].set_ylim((row_max - 0.5, -0.5))
+    im = ax[0][0].imshow(Q)
+    fig.colorbar(im, ax=ax[0][0], shrink=1)
+    
+    
+    ax[0][1].set_xlim((-0.5, col_max - 0.5))
+    ax[0][1].set_ylim((row_max - 0.5, -0.5))
+    im = ax[0][1].imshow(rnd)
+    fig.colorbar(im, ax=ax[0][1], shrink=1)
+    
+    
+    ax[1][0].set_xlim((-0.5, col_max - 0.5))
+    ax[1][0].set_ylim((row_max - 0.5, -0.5))
+    im = ax[1][0].imshow(entropy)
+    fig.colorbar(im, ax=ax[1][0], shrink=1)
+    
+    
+    ax[1][1].set_xlim((-0.5, col_max - 0.5))
+    ax[1][1].set_ylim((row_max - 0.5, -0.5))
+    im = ax[1][1].imshow(v_data,vmax = 10,cmap='hot')
+    fig.colorbar(im, ax=ax[1][1], shrink=1)
     
     walls = np.zeros([row_max, col_max])
     for w in env.wall:
@@ -34,8 +38,7 @@ def visualization(env,data,v_data):
             walls[w] = 1
         else:
             walls[w] = None
-
-    im = ax[1].imshow(walls,cmap='Blues',alpha=0.5)
+    im = ax[1][1].imshow(walls,cmap='Blues',alpha=0.5)
     
     fig.savefig("RND.pdf")
 

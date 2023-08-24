@@ -4,7 +4,7 @@ from collections import deque
 from ContinuousGridworld.Continuous_GridWorld import ContinuousGridWorld
 from algorithm.sac import SAC_agent
 from algorithm.msac import MSAC_agent
-from algorithm.iaac import IAAC_agent
+from algorithm.vaac import VAAC_agent
 from algorithm.random_action import Random_action_agent
 from distutils.util import strtobool
 from plotlib import plot_visiting, draw_env, visualization, save_pickle
@@ -58,11 +58,11 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
         terminal = False
         while timestep < episode_length and terminal != True:
             with torch.no_grad():
-                current_state = torch.Tensor(environment.agent_location)
+                current_state = torch.Tensor(environment.normalize(environment.agent_location))
                 action = agent.action(current_state)
                 action = np.array(action.to('cpu'))
                 next_state, reward, terminal = environment.make_step(action,0)
-            agent.count_visiting(next_state)
+            agent.count_visiting(environment.r_normalize(next_state))
             next_state = torch.Tensor(next_state)
             timestep += 1
             total_step += 1
@@ -94,9 +94,11 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
         # t = agent.get_visiting_time()
         # plot_visiting(ax[0],fig,environment,t)
         # fig.savefig("./result/map:1,test,visiting_time.pdf")
-        # table = agent.get_rnd_error()
-        # v_table = agent.get_visiting_time()
-        # visualization(environment,table,v_table)
+        q = agent.get_Q()
+        rnd = agent.get_rnd_error()
+        entropy = agent.get_entropy()
+        v_table = agent.get_visiting_time()
+        visualization(environment,q,rnd,entropy,v_table)
         print('Training:',
               round(100*(seed*num_episodes*episode_length+total_step)/(num_episodes*episode_length*args.n_iter_seed),4),
               '%|',
@@ -116,8 +118,8 @@ def loading_algorithm(env,args):
         agent = SAC_agent(env,args)
     elif args.algorithm == 'msac':
         agent = MSAC_agent(env,args)
-    elif args.algorithm == 'iaac':
-        agent = IAAC_agent(env,args)
+    elif args.algorithm == 'vaac':
+        agent = VAAC_agent(env,args)
     elif args.algorithm == 'random':
         agent = Random_action_agent(env,args)
     return agent

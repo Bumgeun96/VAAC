@@ -56,14 +56,14 @@
         "policy_frequency": 2,
         "target_network_frequency": 1,
         "noise_clip": 0.5,
-        "alpha": 0.05,
+        "alpha": 0.5,
         "mda_alpha": 0.05,
-        "im_alpha": 0.05,
-        "im_beta": 0.05,
+        "im_alpha": 1,
+        "im_beta": 2,
         "cliping_discriminator": 0.0001,
         "d_step": 1,
         "auto_tune": 0,
-        "algorithm": "sac",
+        "algorithm": "vaac",
         "map": 1
     }
 }
