@@ -6,10 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from rl_utils.network import SoftQNetwork,Actor,RNDModel,EnvNet,AdventureNet
-from rl_utils.replay_memory import ReplayMemory as memory
-
-
 class Random_action_agent():
     def __init__(self,environment,args):
         # Initialize with args

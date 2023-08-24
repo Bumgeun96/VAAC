@@ -6,13 +6,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from rl_utils.network import SoftQNetwork,Actor,RNDModel,EnvNet,AdventureNet
+from rl_utils.network import SoftQNetwork,Actor,RNDModel,EnvNet,Virtual_Actor
 from rl_utils.replay_memory import ReplayMemory as memory
 
 # from .utils.algorithm_utils import count_visiting, get_visiting_time, count_visitation
 
 
-class IAAC_agent():
+class VAAC_agent():
     def __init__(self,environment,args):
         # Initialize with args
         self.seed = args.seed
@@ -72,11 +72,11 @@ class IAAC_agent():
         
         self.rnd = RNDModel(environment).to(self.device)
         self.env_net = EnvNet(environment).to(self.device)
-        self.rnd_optimizer = optim.Adam(list(self.rnd.parameters()), lr=0.0001, weight_decay = 0.95)
+        self.rnd_optimizer = optim.Adam(list(self.rnd.parameters()), lr=0.0001)
         self.env_net_optimizer = optim.Adam(list(self.env_net.parameters()), lr=0.001)
         
-        self.imaginary_actor = AdventureNet(environment).to(self.device)
-        self.imaginary_actor_optimizer = optim.Adam(list(self.imaginary_actor.parameters()), lr=0.001)
+        self.virtual_actor = Virtual_Actor(environment).to(self.device)
+        self.virtual_actor_optimizer = optim.Adam(list(self.virtual_actor.parameters()), lr=0.001)
             
     def action(self,state):
         if self.global_step < self.learning_start:
@@ -93,24 +93,41 @@ class IAAC_agent():
     
     def store_experience(self,state,action,reward,next_state,terminal):
         self.replay_memory.add(state,action,reward,next_state,terminal)
-        # self.episode_rnd_training(next_state,terminal)
+        if terminal:
+            self.rnd.rnd_reset()
+            for _ in range(1000):
+                e = self.rnd_training()
+            # self.rnd.soft_update()
+            # self.rnd.save_weights()
         
     def soft_update(self, local_model, target_model):
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*target_param.data)
     
-    def episode_rnd_training(self,state,termination):
-        self.rnd_batch.append(state)
-        if termination:
-            for _ in range(10):
-                self.rnd_training(torch.stack(self.rnd_batch,dim=0).to(self.device))
-            self.rnd_batch = []
         
-    def rnd_training(self,state):
-        rnd_loss = self.rnd.rnd_bonus(state).sum()
+    def rnd_training(self):
+        experiences = self.replay_memory.sample()
+        states, _, _, _, _ = experiences
+        rnd_loss = self.rnd.rnd_bonus(states,normalize = False).sum()
         rnd_loss.backward()
         self.rnd_optimizer.step()
+        return rnd_loss.item()
     
+    def env_training(self,states,actions,next_states):
+        predicted_next_states= self.env_net(states,actions)
+        env_loss = F.mse_loss(predicted_next_states,next_states)
+        self.env_net_optimizer.zero_grad()
+        env_loss.backward()
+        self.env_net_optimizer.step()
+    
+    def virtual_actor_training(self,states):
+        im_action, log_im_action, _ = self.virtual_actor.virtual_action(states)
+        rnd_error = self.rnd.rnd_bonus(self.env_net(states,im_action))
+        virtual_loss = (self.im_alpha*log_im_action-rnd_error).mean()
+        self.virtual_actor_optimizer.zero_grad()
+        virtual_loss.backward()
+        self.virtual_actor_optimizer.step()
+            
     def training(self):
         if self.global_step > self.batch_size:
             experiences = self.replay_memory.sample()
@@ -122,31 +139,15 @@ class IAAC_agent():
             terminations = terminations.to(self.device)
             
             # env prediction
-            predicted_next_states= self.env_net(states,actions)
-            env_loss = F.mse_loss(predicted_next_states,next_states)
-            self.env_net_optimizer.zero_grad()
-            env_loss.backward()
-            self.env_net_optimizer.step()
+            self.env_training(states,actions,next_states)
+
+            #virtual action
+            self.virtual_actor_training(states)
             
         if self.global_step > self.learning_start:
-            
-            # rnd training
-            # if random.random()<0.1:
-            self.rnd_training(next_states)
-            
-            #imaginary action
-            im_action, log_im_action, _ = self.imaginary_actor.imaginary_action(states)
-            rnd_error = self.rnd.rnd_bonus(self.env_net(states,im_action))
-            rnd_normalization = self.rnd.rnd_bonus(states)
-            imaginary_loss = (self.im_alpha*log_im_action-rnd_error).mean()
-            self.imaginary_actor_optimizer.zero_grad()
-            imaginary_loss.backward()
-            self.imaginary_actor_optimizer.step()
-
-                    
             with torch.no_grad():
                 next_actions, next_state_log_pi, _ = self.actor.get_action(next_states)
-                _, im_next_state_log_pi, _ = self.imaginary_actor.imaginary_action(next_states)
+                _, im_next_state_log_pi, _ = self.virtual_actor.virtual_action(next_states)
                 q1_target = self.critic_target1(next_states,next_actions)
                 q2_target = self.critic_target2(next_states,next_actions)
                 next_Q = torch.min(q1_target,q2_target) + self.im_beta*im_next_state_log_pi
@@ -209,13 +210,15 @@ class IAAC_agent():
         for row in range(self.env_row_max):
             for col in range(self.env_col_max):
                 state = torch.tensor([row,col],dtype = torch.float32).cuda()
-                rnd_error = self.rnd.rnd_bonus(state)
+                state = self.env.normalize(state)
+                rnd_error = self.rnd.rnd_bonus(state,False)
                 # rnd_table[row][col] = rnd_error
                 if [row,col] in nonzero_indices:
                     rnd_table[row][col] = rnd_error
                 else:
                     rnd_table[row][col] = None
         return rnd_table
+    
     
     def get_entropy(self):
         visiting_table = torch.tensor(self.get_visiting_time())
@@ -224,12 +227,45 @@ class IAAC_agent():
         for row in range(self.env_row_max):
             for col in range(self.env_col_max):
                 state = torch.tensor([row,col],dtype = torch.float32).cuda()
-                entropy = self.imaginary_actor.get_entropy(state).detach().cpu().item()
+                state = self.env.normalize(state)
+                entropy = self.virtual_actor.get_entropy(state).detach().cpu().item()
+                entropy_table[row][col] = entropy
+                # if [row,col] in nonzero_indices:
+                    # entropy_table[row][col] = entropy
+                # else:
+                    # entropy_table[row][col] = None
+        return entropy_table
+    
+    def get_policy_entropy(self):
+        visiting_table = torch.tensor(self.get_visiting_time())
+        nonzero_indices = torch.nonzero(visiting_table).tolist()
+        entropy_table = np.zeros((self.env_row_max, self.env_col_max))
+        for row in range(self.env_row_max):
+            for col in range(self.env_col_max):
+                state = torch.tensor([row,col],dtype = torch.float32).cuda()
+                _, log_prob, _ = self.actor.get_action(state)
                 if [row,col] in nonzero_indices:
-                    entropy_table[row][col] = entropy
+                    entropy_table[row][col] = -log_prob
                 else:
                     entropy_table[row][col] = None
         return entropy_table
+    
+    def get_Q(self):
+        visiting_table = torch.tensor(self.get_visiting_time())
+        nonzero_indices = torch.nonzero(visiting_table).tolist()
+        Q_table = np.zeros((self.env_row_max, self.env_col_max))
+        for row in range(self.env_row_max):
+            for col in range(self.env_col_max):
+                state = torch.tensor([row,col],dtype = torch.float32).cuda()
+                state = self.env.normalize(state)
+                action, _, _ = self.actor.get_action(state)
+                state = state.unsqueeze(dim=0)
+                action = action.unsqueeze(dim=0)
+                if [row,col] in nonzero_indices:
+                    Q_table[row][col] = min(self.critic1(state,action),self.critic1(state,action))
+                else:
+                    Q_table[row][col] = None
+        return Q_table
     
     def count_visitation(self):
         return np.count_nonzero(self.get_visiting_time())
