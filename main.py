@@ -6,6 +6,7 @@ from algorithm.sac import SAC_agent
 from algorithm.msac import MSAC_agent
 from algorithm.vaac import VAAC_agent
 from algorithm.random_action import Random_action_agent
+from algorithm.PPO import PPO
 from distutils.util import strtobool
 from plotlib import plot_visiting, draw_env, visualization, save_pickle
 
@@ -30,6 +31,11 @@ def parse_args():
     parser.add_argument('--policy_frequency',type=int,default=2)
     parser.add_argument('--target_network_frequency',type=int,default=1)
     parser.add_argument('--noise_clip',type=float,default=0.5)
+    parser.add_argument('--action_std_decay_freq',type=int,default=250000)
+    parser.add_argument('--action_std_init',type=float,default=0.6)
+    parser.add_argument('--k_epochs',type=int,default=80)
+    parser.add_argument('--action_std_decay_rate',type=float,default=0.05)
+    parser.add_argument('--min_action_std',type=float,default=0.1)
     parser.add_argument('--alpha',type=float,default=0.5)
     parser.add_argument("--auto_tune", type=lambda x:bool(strtobool(x)), default=False, nargs="?", const=True)
     parser.add_argument('--mda_alpha',type=float,default=0.2)
@@ -94,11 +100,11 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
         # t = agent.get_visiting_time()
         # plot_visiting(ax[0],fig,environment,t)
         # fig.savefig("./result/map:1,test,visiting_time.pdf")
-        q = agent.get_Q()
-        rnd = agent.get_rnd_error()
-        entropy = agent.get_entropy()
-        v_table = agent.get_visiting_time()
-        visualization(environment,q,rnd,entropy,v_table)
+        # q = agent.get_Q()
+        # rnd = agent.get_rnd_error()
+        # entropy = agent.get_entropy()
+        # v_table = agent.get_visiting_time()
+        # visualization(environment,q,rnd,entropy,v_table)
         print('Training:',
               round(100*(seed*num_episodes*episode_length+total_step)/(num_episodes*episode_length*args.n_iter_seed),4),
               '%|',
@@ -122,6 +128,8 @@ def loading_algorithm(env,args):
         agent = VAAC_agent(env,args)
     elif args.algorithm == 'random':
         agent = Random_action_agent(env,args)
+    elif args.algorithm == 'ppo':
+        agent = PPO(env,args)
     return agent
 
 def main(args):
@@ -183,6 +191,11 @@ if __name__ == "__main__":
     args.critic_lr = parameters["ContinuousGridWorld"]['critic_lr']
     args.policy_frequency = parameters["ContinuousGridWorld"]['policy_frequency']
     args.noise_clip = parameters["ContinuousGridWorld"]['noise_clip']
+    args.k_epochs = parameters["ContinuousGridWorld"]['k_epochs']
+    args.action_std_decay_freq = parameters["ContinuousGridWorld"]['action_std_decay_freq']
+    args.action_std_init= parameters["ContinuousGridWorld"]['action_std_init']
+    args.action_std_decay_rate= parameters["ContinuousGridWorld"]['action_std_decay_rate']
+    args.min_action_std= parameters["ContinuousGridWorld"]['min_action_std']
     args.alpha = parameters["ContinuousGridWorld"]['alpha']
     args.auto_tune = bool(parameters["ContinuousGridWorld"]['auto_tune'])
     args.mda_alpha = parameters["ContinuousGridWorld"]['mda_alpha']

@@ -55,15 +55,20 @@
         "critic_lr": 0.001,
         "policy_frequency": 2,
         "target_network_frequency": 1,
-        "noise_clip": 0.5,
+        "noise_clip": 0.2,
+        "k_epochs": 80,
+        "action_std_decay_freq": 25000,
+        "action_std_init": 0.6,
+        "action_std_decay_rate": 0.05,
+        "min_action_std": 0.1,
         "alpha": 0.5,
         "mda_alpha": 0.05,
         "im_alpha": 1,
-        "im_beta": 2,
+        "im_beta": 3,
         "cliping_discriminator": 0.0001,
         "d_step": 1,
         "auto_tune": 0,
-        "algorithm": "vaac",
+        "algorithm": "ppo",
         "map": 1
     }
 }
