@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions import MultivariateNormal
 import numpy as np
 
 class discriminator(nn.Module):
@@ -257,3 +258,72 @@ class Virtual_Actor(nn.Module):
     def gaussian_entropy(self,std_x, std_y):
         entropy = 0.5 * torch.log(2 * torch.exp(torch.tensor(1)) * std_x**2 * std_y**2)
         return entropy
+    
+    
+class PPO_ActorCritic(nn.Module):
+    def __init__(self, env, state_dim, action_dim, action_std_init):
+        super(PPO_ActorCritic, self).__init__()
+        self.device = torch.device('cpu')
+        if(torch.cuda.is_available()): 
+            self.device = torch.device('cuda:0') 
+            torch.cuda.empty_cache()
+            
+        self.action_dim = action_dim
+        self.action_var = torch.full((action_dim,), action_std_init * action_std_init).to(self.device)
+        # actor
+        self.actor = nn.Sequential(
+                        nn.Linear(state_dim, 64),
+                        nn.Tanh(),
+                        nn.Linear(64, 64),
+                        nn.Tanh(),
+                        nn.Linear(64, action_dim),
+                        nn.Tanh()
+                    )
+        # critic
+        self.critic = nn.Sequential(
+                        nn.Linear(state_dim, 64),
+                        nn.Tanh(),
+                        nn.Linear(64, 64),
+                        nn.Tanh(),
+                        nn.Linear(64, 1)
+                    )
+    
+        # action rescaling
+        self.register_buffer(
+                "action_scale", torch.tensor((env.action_space.high[0] - env.action_space.low[0]) / 2.0, dtype=torch.float32)
+        )
+        self.register_buffer(
+            "action_bias", torch.tensor((env.action_space.high[0] + env.action_space.low[0]) / 2.0, dtype=torch.float32)
+        )
+    
+    def set_action_std(self, new_action_std):
+        self.action_var = torch.full((self.action_dim,), new_action_std * new_action_std).to(device)
+
+    def forward(self):
+        raise NotImplementedError
+    
+    def act(self, state):
+        action_mean = self.actor(state)
+        cov_mat = torch.diag(self.action_var).unsqueeze(dim=0)
+        dist = MultivariateNormal(action_mean, cov_mat)
+        x = dist.sample()
+        action = torch.tanh(x)* self.action_scale + self.action_bias
+        action_logprob = dist.log_prob(action)
+        action_logprob -= torch.log(1-action.pow(2)+1e-6).sum(dim=1)
+        state_val = self.critic(state)
+        return action[0].detach(), action_logprob.detach(), state_val.detach()
+    
+    def evaluate(self, state, action):
+        action_mean = self.actor(state)
+        action_var = self.action_var.expand_as(action_mean)
+        cov_mat = torch.diag_embed(action_var).to(self.device)
+        dist = MultivariateNormal(action_mean, cov_mat)
+        
+        # For Single Action Environments.
+        if self.action_dim == 1:
+            action = action.reshape(-1, self.action_dim)
+        action_logprobs = dist.log_prob(action)
+        dist_entropy = dist.entropy()
+        state_values = self.critic(state)
+        
+        return action_logprobs, state_values, dist_entropy

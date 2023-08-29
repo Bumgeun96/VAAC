@@ -27,3 +27,22 @@ class ReplayMemory:
 
     def __len__(self):
         return len(self.memory)
+    
+class RolloutBuffer:
+    def __init__(self):
+        self.actions = []
+        self.states = []
+        self.logprobs = []
+        self.rewards = []
+        self.state_values = []
+        self.is_terminals = []
+        self.intrinsic_rewards = []
+    
+    def clear(self):
+        del self.actions[:]
+        del self.states[:]
+        del self.logprobs[:]
+        del self.rewards[:]
+        del self.state_values[:]
+        del self.is_terminals[:]
+        del self.intrinsic_rewards[:]
