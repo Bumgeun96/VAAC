@@ -80,8 +80,8 @@ class PPO:
             self.action_std = min_action_std
             # print("setting actor output action_std to min_action_std : ", self.action_std)
         else:
-            pass
             # print("setting actor output action_std to : ", self.action_std)
+            pass
         self.set_action_std(self.action_std)
 
 
@@ -94,7 +94,6 @@ class PPO:
         self.buffer.actions.append(action)
         self.buffer.logprobs.append(action_logprob)
         self.buffer.state_values.append(state_val)
-        
         if self.time_step % self.action_std_decay_freq == 0:
             self.decay_action_std(self.action_std_decay_rate, self.min_action_std)
 
@@ -137,7 +136,7 @@ class PPO:
             # calculate advantages
             advantages = rewards.detach() - old_state_values.detach()
             i_advantages = intrinsic_rewards.detach() - old_state_values.detach()
-            advantages += i_advantages
+            advantages = 2*advantages+i_advantages
 
             # Optimize policy for K epochs
             for _ in range(self.K_epochs):

@@ -16,8 +16,16 @@
         "policy_frequency": 2,
         "target_network_frequency": 1,
         "noise_clip": 0.5,
+        "k_epochs": 80,
+        "action_std_decay_freq": 10000,
+        "action_std_init": 0.5,
+        "action_std_decay_rate": 0.05,
+        "min_action_std": 0.1,
+        "im_alpha": 1,
+        "im_beta": 3,
         "alpha": 0.04,
-        "auto_tune": "True"
+        "auto_tune": "True",
+        "algorithm": "ppo"
     },
     "SparseHalfCheetah-v1":
     {
@@ -36,14 +44,22 @@
         "policy_frequency": 2,
         "target_network_frequency": 1,
         "noise_clip": 0.5,
+        "k_epochs": 80,
+        "action_std_decay_freq": 10000,
+        "action_std_init": 2.0,
+        "action_std_decay_rate": 0.05,
+        "min_action_std": 0.1,
+        "im_alpha": 1,
+        "im_beta": 3,
         "alpha": 0.04,
-        "auto_tune": "True"
+        "auto_tune": "True",
+        "algorithm": "ppo"
     },
     "ContinuousGridWorld":
     {
         "env":"ContinuousGridWorld",
         "n_steps": 1000,
-        "n_total_steps": 300000,
+        "n_total_steps": 500000,
         "n_iter_seed": 30,
         "reward_scale": 0,
         "buffer_size": 1000000,
@@ -57,8 +73,8 @@
         "target_network_frequency": 1,
         "noise_clip": 0.2,
         "k_epochs": 80,
-        "action_std_decay_freq": 25000,
-        "action_std_init": 0.6,
+        "action_std_decay_freq": 10000,
+        "action_std_init": 2.0,
         "action_std_decay_rate": 0.05,
         "min_action_std": 0.1,
         "alpha": 0.5,

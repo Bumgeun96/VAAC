@@ -83,12 +83,13 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
                 visiting_time50k = agent.get_visiting_time()
                 visiting_times.append(visiting_time50k)
                 print(n_visitation)
-            elif total_step == 300000:
+            elif total_step == int(num_episodes*episode_length):
                 visiting_time300k = agent.get_visiting_time()
                 visiting_times.append(visiting_time300k)
                 print(n_visitation)
 
             if train:
+                print(next_state)
                 agent.store_experience(current_state,action,reward,next_state,terminal)
                 agent.training()
 
@@ -157,7 +158,7 @@ def main(args):
     v = np.array(v)
     visitings = np.sum(v,axis=0)
     fig, ax = plt.subplots(1, 3, figsize=(20, 8))
-    per_name = ["5k", "50k", '300k']
+    per_name = ["5k", "50k", str(int(args.n_total_steps/1000))+"k"]
     for i,t in enumerate(visitings):
         try:
             plot_visiting(ax[i],fig,env,t)

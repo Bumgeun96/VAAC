@@ -28,9 +28,9 @@ class SAC_agent():
         self.noise_clip = args.noise_clip
         self.alpha = args.alpha
         self.auto_tune = args.auto_tune
-        self.mda_alpha = args.mda_alpha
-        self.cliping_discriminator = args.cliping_discriminator
-        self.d_step = args.d_step
+        # self.mda_alpha = args.mda_alpha
+        # self.cliping_discriminator = args.cliping_discriminator
+        # self.d_step = args.d_step
         self.global_step = 0
         self.env = environment
         self.action_shape = environment.action_space.shape[0]

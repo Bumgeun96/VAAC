@@ -297,7 +297,7 @@ class PPO_ActorCritic(nn.Module):
         )
     
     def set_action_std(self, new_action_std):
-        self.action_var = torch.full((self.action_dim,), new_action_std * new_action_std).to(device)
+        self.action_var = torch.full((self.action_dim,), new_action_std * new_action_std).to(self.device)
 
     def forward(self):
         raise NotImplementedError
@@ -312,6 +312,11 @@ class PPO_ActorCritic(nn.Module):
         action_logprob -= torch.log(1-action.pow(2)+1e-6).sum(dim=1)
         state_val = self.critic(state)
         return action[0].detach(), action_logprob.detach(), state_val.detach()
+
+    def deterministic_act(self, state):
+        action_mean = self.actor(state)
+        action = torch.tanh(action_mean)* self.action_scale + self.action_bias
+        return action[0].detach()
     
     def evaluate(self, state, action):
         action_mean = self.actor(state)

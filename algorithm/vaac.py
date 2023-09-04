@@ -93,7 +93,7 @@ class VAAC_agent():
     
     def store_experience(self,state,action,reward,next_state,terminal):
         self.replay_memory.add(state,action,reward,next_state,terminal)
-        if terminal:
+        if terminal and len(self.replay_memory)>self.batch_size:
             self.rnd.rnd_reset()
             for _ in range(1000):
                 e = self.rnd_training()
