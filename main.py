@@ -20,6 +20,7 @@ def parse_args():
     parser.add_argument('--seed',type=int,default=10)
     parser.add_argument('--n_steps',type=int,default=1000)
     parser.add_argument('--n_total_steps',type=int,default=300000)
+    parser.add_argument("--update_timestep",type=int,default=4000)
     parser.add_argument('--n_iter_seed',type=int,default=30)
     parser.add_argument('--buffer_size',type=int,default=int(1e6))
     parser.add_argument('--gamma',type=float,default=0.99)
@@ -89,7 +90,6 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
                 print(n_visitation)
 
             if train:
-                print(next_state)
                 agent.store_experience(current_state,action,reward,next_state,terminal)
                 agent.training()
 
@@ -129,7 +129,7 @@ def loading_algorithm(env,args):
         agent = VAAC_agent(env,args)
     elif args.algorithm == 'random':
         agent = Random_action_agent(env,args)
-    elif args.algorithm == 'ppo':
+    elif args.algorithm == 'rnd':
         agent = PPO(env,args)
     return agent
 
@@ -157,6 +157,7 @@ def main(args):
     save_pickle(visiting_plots, 'map:'+str(args.map)+","+args.algorithm + ',visitation_plot')
     v = np.array(v)
     visitings = np.sum(v,axis=0)
+    save_pickle(visitings,'map:'+str(args.map)+","+args.algorithm + ',visiting_histogram')
     fig, ax = plt.subplots(1, 3, figsize=(20, 8))
     per_name = ["5k", "50k", str(int(args.n_total_steps/1000))+"k"]
     for i,t in enumerate(visitings):
@@ -183,6 +184,7 @@ if __name__ == "__main__":
     args.buffer_size = parameters["ContinuousGridWorld"]['buffer_size']
     args.n_steps = parameters["ContinuousGridWorld"]['n_steps']
     args.n_total_steps = parameters["ContinuousGridWorld"]['n_total_steps']
+    args.update_timestep = parameters["ContinuousGridWorld"]['update_timestep']
     args.n_iter_seed = parameters["ContinuousGridWorld"]['n_iter_seed']
     args.gamma = parameters["ContinuousGridWorld"]['gamma']
     args.tau = parameters["ContinuousGridWorld"]['tau']

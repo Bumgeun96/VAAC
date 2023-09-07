@@ -36,7 +36,7 @@ class PPO:
         self.eps_clip = args.noise_clip
         self.K_epochs = args.k_epochs
         self.episode_length = args.n_steps
-        self.update_timestep = self.episode_length*4
+        self.update_timestep = args.update_timestep
         self.time_step = 0
         
         random.seed(self.seed)
@@ -78,9 +78,9 @@ class PPO:
         self.action_std = round(self.action_std, 4)
         if (self.action_std <= min_action_std):
             self.action_std = min_action_std
-            # print("setting actor output action_std to min_action_std : ", self.action_std)
+            print("setting actor output action_std to min_action_std : ", self.action_std)
         else:
-            # print("setting actor output action_std to : ", self.action_std)
+            print("setting actor output action_std to : ", self.action_std)
             pass
         self.set_action_std(self.action_std)
 
@@ -136,7 +136,7 @@ class PPO:
             # calculate advantages
             advantages = rewards.detach() - old_state_values.detach()
             i_advantages = intrinsic_rewards.detach() - old_state_values.detach()
-            advantages = 2*advantages+i_advantages
+            advantages = advantages+i_advantages
 
             # Optimize policy for K epochs
             for _ in range(self.K_epochs):

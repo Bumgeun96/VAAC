@@ -63,8 +63,8 @@ class SAC_agent():
         self.actor_optimizer = optim.Adam(list(self.actor.parameters()), lr=self.actor_lr)
         
         if self.auto_tune:
-            self.target_entropy = -torch.prod(torch.Tensor(self.action_shape).to(self.device)).item()
-            self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
+            self.target_entropy = -torch.prod(torch.Tensor(environment.action_space.shape).to(self.device)).item()
+            self.log_alpha = torch.tensor(-0.5, requires_grad=True, device=self.device)
             self.alpha = self.log_alpha.exp().item()
             self.a_optimizer = optim.Adam([self.log_alpha], lr=self.critic_lr)
         else:
@@ -159,22 +159,11 @@ class SAC_agent():
                         with torch.no_grad():
                             _,log_pi,_ = self.actor.get_action(states)
                         alpha_loss = (-self.log_alpha*(log_pi+self.target_entropy)).mean()
-                        
                         self.a_optimizer.zero_grad()
                         alpha_loss.backward()
+                        torch.nn.utils.clip_grad_norm_(self.a_optimizer.param_groups[0]['params'], 1)
                         self.a_optimizer.step()
                         self.alpha = self.log_alpha.exp().item()
-            # if self.algo:
-            #     try:
-            #         condition = torch.exp(score_prop)>0.8
-            #         try:
-            #             idx = torch.nonzero(condition).squeeze()[:,0]
-            #         except:
-            #             idx = torch.nonzero(condition).squeeze()[0]
-            #         # print(states[idx])
-            #         print(pi[idx])
-            #     except:
-            #         pass
             
             if self.global_step % self.target_network_frequency == 0:
                 self.soft_update(self.critic1,self.critic_target1)

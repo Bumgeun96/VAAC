@@ -49,14 +49,14 @@ class Actor(nn.Module):
         self.fc_logstd = nn.Linear(256, env.action_space.shape[0])
         
         # uniform initialize
-        nn.init.uniform_(self.fc1.weight, -0.1, 0.1)
-        nn.init.uniform_(self.fc1.bias, -0.1, 0.1)
-        nn.init.uniform_(self.fc2.weight, -0.1, 0.1)
-        nn.init.uniform_(self.fc2.bias, -0.1, 0.1)
-        nn.init.uniform_(self.fc_mean.weight, -0.1, 0.1)
-        nn.init.uniform_(self.fc_mean.bias, -0.1, 0.1)
-        nn.init.uniform_(self.fc_logstd.weight, -0.1, 0.1)
-        nn.init.uniform_(self.fc_logstd.bias, -0.1, 0.1)
+        nn.init.uniform_(self.fc1.weight, -0.01, 0.01)
+        nn.init.uniform_(self.fc1.bias, -0.01, 0.01)
+        nn.init.uniform_(self.fc2.weight, -0.01, 0.01)
+        nn.init.uniform_(self.fc2.bias, -0.01, 0.01)
+        nn.init.uniform_(self.fc_mean.weight, -0.01, 0.01)
+        nn.init.uniform_(self.fc_mean.bias, -0.01, 0.01)
+        nn.init.uniform_(self.fc_logstd.weight, -0.01, 0.01)
+        nn.init.uniform_(self.fc_logstd.bias, -0.01, 0.01)
         
         # action rescaling
         self.register_buffer(
@@ -68,8 +68,8 @@ class Actor(nn.Module):
             
 
     def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
+        x = F.leaky_relu(self.fc1(x))
+        x = F.leaky_relu(self.fc2(x))
         mean = self.fc_mean(x)
         log_std = self.fc_logstd(x)
         log_std = torch.tanh(log_std)
@@ -316,7 +316,7 @@ class PPO_ActorCritic(nn.Module):
     def deterministic_act(self, state):
         action_mean = self.actor(state)
         action = torch.tanh(action_mean)* self.action_scale + self.action_bias
-        return action[0].detach()
+        return action.detach()
     
     def evaluate(self, state, action):
         action_mean = self.actor(state)

@@ -1,7 +1,8 @@
 import argparse
-import gym
-import sparse_gym_mujoco
-from gymnasium.utils.save_video import save_video
+# import gym
+# import sparse_gym_mujoco
+from envs import (GymEnv,GymEnvDelayed)
+# from gymnasium.utils.save_video import save_video
 import torch
 import numpy as np
 import random
@@ -13,10 +14,12 @@ from algorithm.PPO import PPO
 from distutils.util import strtobool
 from collections import defaultdict
 import json
+from plotlib import save_pickle
 
-ENV = "Hopper-v1"
 ENV = "SparseHopper-v1"
-# ENV = "SparseHalfCheetah-v1"
+ENV = "SparseAnt-v1"
+ENV = "SparseWalker2d-v1"
+ENV = "SparseHalfCheetah-v1"
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -44,10 +47,11 @@ def parse_args():
     parser.add_argument('--algo',type=bool, default=False, help="the use of the proposed algorithm")
     parser.add_argument("--algorithm", type=str, default='sac')
     parser.add_argument("--n_total_steps",type=int,default=1000000)
+    parser.add_argument("--update_timestep",type=int,default=4000)
     args = parser.parse_args()
     return args
 
-def train(env, agent, n_episodes, max_step,training_steps,n_eval):
+def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval):
     total_step = 0
     random_seed = random.randint(0,200)
     try:
@@ -57,6 +61,7 @@ def train(env, agent, n_episodes, max_step,training_steps,n_eval):
     Eval = False
     if training_steps == None:
         n_episodes = 999999999
+    returns = []
     for epi in range(1,n_episodes+1):
         state = env.reset()
         state = torch.tensor(state.reshape((1,state_size))[0],dtype=torch.float32)
@@ -64,6 +69,7 @@ def train(env, agent, n_episodes, max_step,training_steps,n_eval):
         for step in range(1,max_step+1):
             total_step += 1
             action = agent.action(state).cpu().detach().numpy()
+            # print(action)
             action = np.clip(action*action_high, action_low, action_high)
             next_state, reward, done, truncated = env.step(action)
             next_state = next_state.reshape((1,state_size))
@@ -85,23 +91,23 @@ def train(env, agent, n_episodes, max_step,training_steps,n_eval):
                     now = datetime.now()
                     print('[',now.hour,':',now.minute,':',now.second,']','steps:',total_step + step)
                     Eval = True
-            if done or truncated:
+            if done or step>=1000:
                 # try:
                 #     print('returns:',score[0],'step:',step)
                 # except:
                 #     print('returns:',score,'step:',step)
                 if Eval:
-                    returns = eval(n_eval)
-                    return_values[algo_args.seed].append(returns)
+                    returns.append(eval(eval_env,n_eval))
                     Eval = False
+                    return_values[algo_args.seed].append(returns[-1])
                     with open('./figures/returns_'+ENV+'.pickle',"wb") as fw:
                         pickle.dump(return_values,fw)
                 break
         if total_step > training_steps:
             break
+    return returns
         
-def eval(n_eval):
-    eval_env = gym.make(env_name)
+def eval(eval_env,n_eval):
     try:
         eval_agent.actor.load_state_dict(torch.load("./model/("+ENV+")policy.pt"))
     except:
@@ -110,8 +116,10 @@ def eval(n_eval):
     step = 0
     for _ in range(n_eval):
         state=eval_env.reset().reshape((1,state_size))
+        local_step = 0
         while True:
             step += 1
+            local_step += 1
             state = torch.tensor(state[0],dtype=torch.float32).to('cuda')
             try:
                 action = eval_agent.deterministic_act(state).cpu().detach().numpy()
@@ -119,10 +127,9 @@ def eval(n_eval):
                 action = eval_agent.policy.deterministic_act(state).cpu().detach().numpy()
             action = np.clip(action*action_high, action_low, action_high)
             next_state, reward, done, truncated= eval_env.step(action)
-            next_state = next_state.reshape((1,state_size))
-            state = next_state
+            state = next_state.reshape((1,state_size))
             returns += reward
-            if done or truncated:
+            if done or local_step >= 1000:
                 # save_video(eval_env.render(),
                 #            "videos",
                 #            fps=eval_env.metadata["render_fps"],
@@ -131,7 +138,6 @@ def eval(n_eval):
     returns /= n_eval
     step /= n_eval
     print('returns:',returns,'step:',step)
-    eval_env.close()
     return returns
         
 def random_seed(seed):
@@ -149,7 +155,6 @@ def loading_algorithm(env,args):
     elif args.algorithm == 'vaac':
         agent = VAAC_agent(env,args)
     elif args.algorithm == 'ppo':
-        args.action_std_decay_freq =int(args.n_total_steps/7)
         agent = PPO(env,args)
     return agent
 
@@ -179,25 +184,29 @@ if __name__ == "__main__":
     algo_args.alpha = parameters[ENV]['alpha']
     algo_args.auto_tune = bool(parameters[ENV]['auto_tune'])
     algo_args.n_steps = parameters[ENV]['n_steps']
+    algo_args.update_timestep = parameters[ENV]['update_timestep']
     algo_args.n_total_steps = parameters[ENV]['n_total_steps']
     print("algorithm:"+algo_args.algorithm)
-    env = gym.make(env_name)
-    action_high = env.action_space.high[0]
-    action_low = env.action_space.low[0]
-    action_bound = [action_low,action_high]
     seeds = [10,20,30,40,50]
     return_values = defaultdict(list)
+    returns = []
     for seed in seeds:
         algo_args.seed = seed
         random_seed(seed)
+        env = GymEnv(env_name,seed = seed)
+        eval_env = GymEnv(env_name,seed = seed)
+        action_high = env.action_space.high[0]
+        action_low = env.action_space.low[0]
+        action_bound = [action_low,action_high]
         state_size = env.observation_space.shape[0]
         action_size = env.action_space.shape[0]
         agent = loading_algorithm(env,algo_args)
         eval_agent = loading_algorithm(env,algo_args)
-        train(env,
-              agent,
-              100000,
-              parameters[ENV]['n_steps'],
-              parameters[ENV]['n_total_steps'],
-              parameters[ENV]['n_eval'])
-    env.close()
+        returns.append(train(env,
+                             eval_env,
+                             agent,
+                             100000,
+                             parameters[ENV]['n_steps'],
+                             parameters[ENV]['n_total_steps'],
+                             parameters[ENV]['n_eval']))
+    save_pickle(returns, 'map:'+str(ENV)+","+parameters[ENV]['algorithm'])
