@@ -68,8 +68,8 @@ class Actor(nn.Module):
             
 
     def forward(self, x):
-        x = F.leaky_relu(self.fc1(x))
-        x = F.leaky_relu(self.fc2(x))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
         mean = self.fc_mean(x)
         log_std = self.fc_logstd(x)
         log_std = torch.tanh(log_std)
@@ -100,14 +100,14 @@ class EnvNet(nn.Module):
         self.mean = nn.Linear(256, env.observation_space.shape[0])
         self.std = nn.Linear(256, env.observation_space.shape[0])
         
-        nn.init.uniform_(self.fc1.weight, -0.01, 0.01)
-        nn.init.uniform_(self.fc1.bias, -0.01, 0.01)
-        nn.init.uniform_(self.fc2.weight, -0.01, 0.01)
-        nn.init.uniform_(self.fc2.bias, -0.01, 0.01)
-        nn.init.uniform_(self.mean.weight, -0.01, 0.01)
-        nn.init.uniform_(self.mean.bias, -0.01, 0.01)
-        nn.init.uniform_(self.std.weight, -0.01, 0.01)
-        nn.init.uniform_(self.std.bias, -0.01, 0.01)
+        nn.init.uniform_(self.fc1.weight, -0.1, 0.1)
+        nn.init.uniform_(self.fc1.bias, -0.1, 0.1)
+        nn.init.uniform_(self.fc2.weight, -0.1, 0.1)
+        nn.init.uniform_(self.fc2.bias, -0.1, 0.1)
+        nn.init.uniform_(self.mean.weight, -0.1, 0.1)
+        nn.init.uniform_(self.mean.bias, -0.1, 0.1)
+        nn.init.uniform_(self.std.weight, -0.1, 0.1)
+        nn.init.uniform_(self.std.bias, -0.1, 0.1)
 
     def forward(self, x, a):
         x = torch.cat([x, a], 1)

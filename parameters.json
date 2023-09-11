@@ -22,8 +22,8 @@
         "action_std_init": 0.6,
         "action_std_decay_rate": 0.05,
         "min_action_std": 0.1,
-        "im_alpha": 1,
-        "im_beta": 3,
+        "im_alpha": 0.2,
+        "im_beta": 0.5,
         "alpha": 0.2,
         "auto_tune": 1,
         "algorithm": "vaac"
@@ -51,8 +51,8 @@
         "action_std_init": 0.6,
         "action_std_decay_rate": 0.05,
         "min_action_std": 0.1,
-        "im_alpha": 1,
-        "im_beta": 3,
+        "im_alpha": 0.2,
+        "im_beta": 0.5,
         "alpha": 0.2,
         "auto_tune": 1,
         "algorithm": "vaac"
@@ -80,8 +80,8 @@
         "action_std_init": 0.6,
         "action_std_decay_rate": 0.05,
         "min_action_std": 0.1,
-        "im_alpha": 1,
-        "im_beta": 3,
+        "im_alpha": 0.2,
+        "im_beta": 0.5,
         "alpha": 0.2,
         "auto_tune": 1,
         "algorithm": "vaac"
@@ -109,8 +109,8 @@
         "action_std_init": 0.6,
         "action_std_decay_rate": 0.05,
         "min_action_std": 0.1,
-        "im_alpha": 1,
-        "im_beta": 3,
+        "im_alpha": 0.2,
+        "im_beta": 0.5,
         "alpha": 0.2,
         "auto_tune": 1,
         "algorithm": "vaac"
@@ -145,7 +145,7 @@
         "cliping_discriminator": 0.0001,
         "d_step": 1,
         "auto_tune": 0,
-        "algorithm": "sac",
+        "algorithm": "vaac",
         "map": 1
     }
 }

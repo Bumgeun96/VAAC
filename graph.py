@@ -82,9 +82,12 @@ for e in env:
             with open('./pickle_file/map:'+e+","+algo+".pickle", "rb") as f:
                 data = np.array(pickle.load(f))
                 data = data_smoothing(data,0.1)
-                plt.plot(x,data.mean(axis=0),label=algo.upper())
-                plt.fill_between(x, data.mean(axis = 0)-data.std(axis = 0), data.mean(axis = 0)+data.std(axis = 0), alpha=0.3)
+                plt.plot(x,data.mean(axis=0)[-1000:],label=algo.upper())
+                plt.fill_between(x, data.mean(axis = 0)[-1000:]-data.std(axis = 0)[-1000:], data.mean(axis = 0)[-1000:]+data.std(axis = 0)[-1000:], alpha=0.3)
                 y_limit = max(y_limit,max(data.mean(axis = 0)+data.std(axis = 0)))
+                mean_max = np.max(data.mean(axis=0))
+                arg = np.argmax(data.mean(axis=0))
+                print('Env:'+e+', Algorithm:'+algo+', Mean:'+str(round(mean_max,1))+', Std:'+str(round(data.std(axis = 0)[arg],1)))
         except:
             pass
     plt.xlim(x[0],x[-1])

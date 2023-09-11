@@ -62,7 +62,7 @@ class VAAC_agent():
         self.actor_optimizer = optim.Adam(list(self.actor.parameters()), lr=self.actor_lr)
         
         if self.auto_tune:
-            self.target_entropy = -torch.prod(torch.Tensor(self.action_shape).to(self.device)).item()
+            self.target_entropy = -torch.prod(torch.Tensor(environment.action_space.shape).to(self.device)).item()
             self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha = self.log_alpha.exp().item()
             self.a_optimizer = optim.Adam([self.log_alpha], lr=self.critic_lr)
@@ -91,9 +91,9 @@ class VAAC_agent():
         _, _, deterministic_action = self.actor.get_action(state)
         return deterministic_action
     
-    def store_experience(self,state,action,reward,next_state,terminal):
+    def store_experience(self,state,action,reward,next_state,terminal,total_step):
         self.replay_memory.add(state,action,reward,next_state,terminal)
-        if terminal and len(self.replay_memory)>self.batch_size:
+        if total_step%1000==0 and len(self.replay_memory)>self.batch_size:
             self.rnd.rnd_reset()
             for _ in range(1000):
                 e = self.rnd_training()
@@ -150,7 +150,7 @@ class VAAC_agent():
                 _, im_next_state_log_pi, _ = self.virtual_actor.virtual_action(next_states)
                 q1_target = self.critic_target1(next_states,next_actions)
                 q2_target = self.critic_target2(next_states,next_actions)
-                next_Q = torch.min(q1_target,q2_target) + self.im_beta*im_next_state_log_pi
+                next_Q = torch.min(q1_target,q2_target) + self.im_beta*(im_next_state_log_pi-min(im_next_state_log_pi).detach())
                 target = rewards+(1-terminations)*self.gamma*next_Q
 
             q1 = self.critic1(states,actions)

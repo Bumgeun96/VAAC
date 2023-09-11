@@ -19,7 +19,7 @@ from plotlib import save_pickle
 ENV = "SparseHopper-v1"
 ENV = "SparseAnt-v1"
 ENV = "SparseWalker2d-v1"
-ENV = "SparseHalfCheetah-v1"
+# ENV = "SparseHalfCheetah-v1"
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -74,7 +74,7 @@ def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval):
             next_state, reward, done, truncated = env.step(action)
             next_state = next_state.reshape((1,state_size))
             next_state = torch.tensor(next_state[0],dtype=torch.float32)
-            agent.store_experience(state, action, reward, next_state, done)
+            agent.store_experience(state, action, reward, next_state, done,total_step)
             agent.training()
             state = next_state
             score += reward

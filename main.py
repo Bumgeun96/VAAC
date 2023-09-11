@@ -53,10 +53,7 @@ def parse_args():
 
 def play(environment, agent, num_episodes=20, episode_length=1000, train=True,seed = 0):
     reward_per_episode = []
-    state_scale = torch.tensor(environment.observation_space.high-environment.observation_space.low)
-    state_bias = torch.tensor(environment.observation_space.high-environment.observation_space.low)/2
     returns = deque(maxlen=100)
-    episode_return = 0
     visiting_times = []
     n_visitations = []
     total_step = 0
@@ -90,7 +87,7 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
                 print(n_visitation)
 
             if train:
-                agent.store_experience(current_state,action,reward,next_state,terminal)
+                agent.store_experience(current_state,action,reward,next_state,terminal,total_step)
                 agent.training()
 
             if terminal or timestep >= episode_length:
@@ -168,13 +165,6 @@ def main(args):
             pass
     fig.savefig("./result/map:"+str(args.map)+","+args.algorithm+",visiting_time.pdf")
     
-    # Make learning curve
-    plt.figure()
-    plt.plot(range(1, num_episodes + 1), reward_per_episode, label="Q-learning")
-    plt.xlabel("Episodes")
-    plt.ylabel("Return per Episode")
-    plt.legend()
-    plt.savefig("learning_curve.pdf")
 
 
 if __name__ == "__main__":
