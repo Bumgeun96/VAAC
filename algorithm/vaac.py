@@ -26,9 +26,20 @@ class VAAC_agent():
         self.policy_frequency = args.policy_frequency
         self.target_network_frequency = args.target_network_frequency
         self.alpha = args.alpha
+        self.rnd_frequency = args.rnd_frequency
+        self.rnd_reset = args.rnd_reset
         self.im_alpha = args.im_alpha
-        self.im_beta = args.im_beta
+        self.beta = args.im_beta
         self.auto_tune = args.auto_tune
+        self.beta_scheduling = args.beta_scheduling
+        self.beta_init = args.beta_init
+        self.beta_decay_freq = args.beta_decay_freq
+        self.beta_decay_rate = args.beta_decay_rate
+        self.min_beta = args.min_beta
+        try:
+            self.no_offset = args.no_offset
+        except:
+            self.no_offset = False
         self.global_step = 0
         self.env = environment
         self.action_shape = environment.action_space.shape[0]
@@ -69,6 +80,8 @@ class VAAC_agent():
         else:
             self.alpha = self.alpha
         
+        if self.beta_scheduling:
+            self.beta = args.beta_init
         
         self.rnd = RNDModel(environment).to(self.device)
         self.env_net = EnvNet(environment).to(self.device)
@@ -76,7 +89,7 @@ class VAAC_agent():
         self.env_net_optimizer = optim.Adam(list(self.env_net.parameters()), lr=0.001)
         
         self.virtual_actor = Virtual_Actor(environment).to(self.device)
-        self.virtual_actor_optimizer = optim.Adam(list(self.virtual_actor.parameters()), lr=0.001)
+        self.virtual_actor_optimizer = optim.Adam(self.virtual_actor.parameters(), lr=0.001)
             
     def action(self,state):
         if self.global_step < self.learning_start:
@@ -93,12 +106,11 @@ class VAAC_agent():
     
     def store_experience(self,state,action,reward,next_state,terminal,total_step):
         self.replay_memory.add(state,action,reward,next_state,terminal)
-        if total_step%1000==0 and len(self.replay_memory)>self.batch_size:
-            self.rnd.rnd_reset()
-            for _ in range(1000):
-                e = self.rnd_training()
-            # self.rnd.soft_update()
-            # self.rnd.save_weights()
+        if self.rnd_reset:
+            if total_step%self.rnd_frequency==0 and len(self.replay_memory)>self.batch_size:
+                self.rnd.rnd_reset()
+                for _ in range(self.rnd_frequency):
+                    e = self.rnd_training()
         
     def soft_update(self, local_model, target_model):
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
@@ -107,26 +119,38 @@ class VAAC_agent():
         
     def rnd_training(self):
         experiences = self.replay_memory.sample()
-        states, _, _, _, _ = experiences
+        states, actions, _, next_states, _ = experiences
         rnd_loss = self.rnd.rnd_bonus(states,normalize = False).sum()
+        self.rnd_optimizer.zero_grad()
         rnd_loss.backward()
         self.rnd_optimizer.step()
         return rnd_loss.item()
     
+    def rnd_training_buffer(self,state):
+        rnd_loss = self.rnd.rnd_bonus(state,normalize = False).sum()
+        self.rnd_optimizer.zero_grad()
+        rnd_loss.backward()
+        self.rnd_optimizer.step()
+    
+    
     def env_training(self,states,actions,next_states):
-        predicted_next_states= self.env_net(states,actions)
-        env_loss = F.mse_loss(predicted_next_states,next_states)
+        env_loss = self.env_net.objective_function(states,actions,next_states)
         self.env_net_optimizer.zero_grad()
         env_loss.backward()
         self.env_net_optimizer.step()
+        return env_loss.item()
     
     def virtual_actor_training(self,states):
         im_action, log_im_action, _ = self.virtual_actor.virtual_action(states)
-        rnd_error = self.rnd.rnd_bonus(self.env_net(states,im_action))
+        rnd_error = self.rnd.rnd_bonus(self.env_net(states,im_action),normalize=False)
         virtual_loss = (self.im_alpha*log_im_action-rnd_error).mean()
         self.virtual_actor_optimizer.zero_grad()
         virtual_loss.backward()
         self.virtual_actor_optimizer.step()
+    
+    def normalize(self,x):
+        x = (x-x.mean())/(x.std()+0.0000001)
+        return x
             
     def training(self):
         if self.global_step > self.batch_size:
@@ -138,19 +162,34 @@ class VAAC_agent():
             next_states = next_states.to(self.device)
             terminations = terminations.to(self.device)
             
+            #rnd training
+            if not self.rnd_reset:
+                self.rnd_training_buffer(states)
+            
             # env prediction
-            self.env_training(states,actions,next_states)
+            env_loss = self.env_training(states,actions,next_states)
+            if self.global_step % 1000 == 0:
+                print(env_loss)
 
             #virtual action
-            self.virtual_actor_training(states)
+            if self.global_step % self.policy_frequency == 0:
+                for _ in range(self.policy_frequency):
+                    self.virtual_actor_training(states)
             
         if self.global_step > self.learning_start:
             with torch.no_grad():
                 next_actions, next_state_log_pi, _ = self.actor.get_action(next_states)
+                # boundary = self.rnd.rnd_bonus(self.env_net(next_states,next_actions),normalize=False)-self.rnd.rnd_bonus(next_states,normalize=False)
                 _, im_next_state_log_pi, _ = self.virtual_actor.virtual_action(next_states)
+                # im_next_state_log_pi = im_next_state_log_pi-self.rnd.rnd_bonus(next_states,normalize=False)
                 q1_target = self.critic_target1(next_states,next_actions)
                 q2_target = self.critic_target2(next_states,next_actions)
-                next_Q = torch.min(q1_target,q2_target) + self.im_beta*(im_next_state_log_pi-min(im_next_state_log_pi).detach())
+                # boundary = torch.clamp(boundary,min=0)
+                # next_Q = torch.min(q1_target,q2_target) + self.beta*(boundary)
+                if self.no_offset:
+                    next_Q = torch.min(q1_target,q2_target) + self.beta*(im_next_state_log_pi)
+                else:
+                    next_Q = torch.min(q1_target,q2_target) + 0*self.beta*(im_next_state_log_pi-min(im_next_state_log_pi).detach())
                 target = rewards+(1-terminations)*self.gamma*next_Q
 
             q1 = self.critic1(states,actions)
@@ -162,6 +201,10 @@ class VAAC_agent():
             self.critic_optimizer.zero_grad()
             q_loss.backward()
             self.critic_optimizer.step()
+            
+            if self.beta_scheduling and self.global_step % self.beta_decay_freq == 0:
+                self.beta -= self.beta_decay_rate
+                self.beta = max(self.beta,self.min_beta)
             
             # TD3 delayed update
             if self.global_step % self.policy_frequency == 0:
@@ -180,11 +223,11 @@ class VAAC_agent():
                         with torch.no_grad():
                             _,log_pi,_ = self.actor.get_action(states)
                         alpha_loss = (-self.log_alpha*(log_pi+self.target_entropy)).mean()
-                        
                         self.a_optimizer.zero_grad()
                         alpha_loss.backward()
                         self.a_optimizer.step()
                         self.alpha = self.log_alpha.exp().item()
+                        
             
             if self.global_step % self.target_network_frequency == 0:
                 self.soft_update(self.critic1,self.critic_target1)
@@ -230,10 +273,10 @@ class VAAC_agent():
                 state = self.env.normalize(state)
                 entropy = self.virtual_actor.get_entropy(state).detach().cpu().item()
                 entropy_table[row][col] = entropy
-                # if [row,col] in nonzero_indices:
-                    # entropy_table[row][col] = entropy
-                # else:
-                    # entropy_table[row][col] = None
+                if [row,col] in nonzero_indices:
+                    entropy_table[row][col] = entropy
+                else:
+                    entropy_table[row][col] = None
         return entropy_table
     
     def get_policy_entropy(self):

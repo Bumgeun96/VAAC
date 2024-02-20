@@ -25,7 +25,6 @@ class SAC_agent():
         self.critic_lr = args.critic_lr
         self.policy_frequency = args.policy_frequency
         self.target_network_frequency = args.target_network_frequency
-        self.noise_clip = args.noise_clip
         self.alpha = args.alpha
         self.auto_tune = args.auto_tune
         # self.mda_alpha = args.mda_alpha
@@ -87,7 +86,7 @@ class SAC_agent():
         _, _, deterministic_action = self.actor.get_action(state)
         return deterministic_action
     
-    def store_experience(self,state,action,reward,next_state,terminal):
+    def store_experience(self,state,action,reward,next_state,terminal,_=None):
         self.replay_memory.add(state,action,reward,next_state,terminal)
         
     def soft_update(self, local_model, target_model):

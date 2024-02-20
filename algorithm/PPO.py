@@ -28,12 +28,15 @@ class PPO:
         lr_actor = args.actor_lr
         lr_critic = args.critic_lr
         self.gamma = args.gamma
+        self.eps_clip = args.clip_coef
+        self.ent_coef = args.ent_coef
+        self.vf_coef = args.vf_coef
+        self.max_grad_norm = args.max_grad_norm
         self.action_std_decay_freq = args.action_std_decay_freq
         self.action_std = args.action_std_init
         self.action_std_decay_rate = args.action_std_decay_rate
         self.min_action_std = args.min_action_std
 
-        self.eps_clip = args.noise_clip
         self.K_epochs = args.k_epochs
         self.episode_length = args.n_steps
         self.update_timestep = args.update_timestep
@@ -99,7 +102,7 @@ class PPO:
 
         return action.detach().flatten()
 
-    def store_experience(self,current_state,action,reward,next_state,terminal):
+    def store_experience(self,current_state,action,reward,next_state,terminal,total_step = None):
         self.buffer.rewards.append(reward)
         self.buffer.is_terminals.append(terminal)
         intrinsic_reward = self.rnd.rnd_bonus(next_state.to(device),normalize = False)
@@ -155,11 +158,12 @@ class PPO:
                 surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
 
                 # final loss of clipped objective PPO
-                loss = -torch.min(surr1, surr2) + 0.5 * (self.MseLoss(state_values, rewards)+self.MseLoss(state_values, intrinsic_rewards)) - 0.01 * dist_entropy
+                loss = -torch.min(surr1, surr2) + self.vf_coef* (self.MseLoss(state_values, rewards)+self.MseLoss(state_values, intrinsic_rewards)) - self.ent_coef * dist_entropy
                 
                 # take gradient step
                 self.optimizer.zero_grad()
                 loss.mean().backward()
+                nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
                 self.optimizer.step()
             
                 self.rnd_training()
@@ -181,6 +185,7 @@ class PPO:
     def rnd_training(self):
         state = torch.squeeze(torch.stack(self.buffer.states, dim=0)).detach().to(device)
         rnd_loss = self.rnd.rnd_bonus(state,normalize = False).sum()
+        self.rnd_optimizer.zero_grad()
         rnd_loss.backward()
         self.rnd_optimizer.step()
         
