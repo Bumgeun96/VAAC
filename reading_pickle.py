@@ -20,7 +20,10 @@ for algo in algorithm:
     with open(dir+"/map:1,"+algo+",visitation_plot.pickle", "rb") as f:
         data = np.array(pickle.load(f))
         try:
-            plt.plot(x, data.mean(axis = 0), label=algo.upper())
+            if algo == 'vaac':
+                plt.plot(x, data.mean(axis = 0), label='EBAC')
+            else:
+                plt.plot(x, data.mean(axis = 0), label=algo.upper())
             plt.fill_between(x, data.mean(axis = 0)-data.std(axis = 0), data.mean(axis = 0)+data.std(axis = 0), alpha=0.3)
             y_limit = max(y_limit,max(data.mean(axis = 0)+data.std(axis = 0)))
         except:
@@ -30,13 +33,13 @@ plt.xlim(x[0],x[-1])
 plt.ylim(0,y_limit*1.1)
 plt.xlabel('Time Steps',fontsize = 15)
 plt.ylabel('Mean Number of Visited Blocks',fontsize = 15)
-plt.legend(loc='upper left',fontsize = 15)
+plt.legend(loc='upper left',fontsize = 20)
 plt.grid(True)
 plt.subplots_adjust(left=0.12, right=0.95, top=0.97, bottom=0.1)
 plt.savefig('visitation.png',dpi=600)
 plt.close()
 env_wall, _ = map_1()
-fig, ax = plt.subplots(3, 3, figsize=(20, 8))
+fig, ax = plt.subplots(3, 3, figsize=(10, 10))
 for n,algo in enumerate(algorithm):
     if algo == 'random':
         continue
@@ -61,7 +64,10 @@ for n,algo in enumerate(algorithm):
                         ax[n][i].set_xticklabels([0,20,40,60,80,100])
                         ax[n][i].set_yticks([100,80,60,40,20,0])
                         ax[n][i].set_yticklabels([0,20,40,60,80,100])
-                        ax[n][i].set_ylabel(algo.upper(),fontsize = 20)
+                        if n == 0:
+                            ax[n][i].set_ylabel('EBAC',fontsize = 20)
+                        else:
+                            ax[n][i].set_ylabel(algo.upper(),fontsize = 20)
                     else:
                         ax[n][i].set_xticklabels([])
                         ax[n][i].set_yticklabels([])
@@ -71,8 +77,9 @@ for n,algo in enumerate(algorithm):
                     pass
     except:
         pass
-fig.subplots_adjust(left=0.05, right=1, top=0.97, bottom=0.05)
+fig.subplots_adjust(left=0.08, right=1, top=0.97, bottom=0.05,hspace=0,wspace=0.05)
 bar = fig.colorbar(im, ax=ax, shrink=1)
 bar.set_ticks([0,2,4,6,8,10])
 bar.set_ticklabels([0,2,4,6,8,'>'+str(10)])
+bar.ax.tick_params(labelsize=25)
 fig.savefig("./result/visiting_histogram.png",dpi=600)

@@ -4,7 +4,7 @@ import copy
 import math
 import gymnasium as gym
 from .env_physics import checking_physics
-from .wall_setting import map_1, map_2
+from .wall_setting import map_0, map_1, map_2
 
 class ContinuousGridWorld:
     def __init__(self, gamma=0.99, map = 1):
@@ -27,7 +27,12 @@ class ContinuousGridWorld:
                                            shape=(2,))
         
         # Set wall
-        if map == 1:
+        if map == 0:
+            self.map = 0
+            self.wall, self.boundary_points = map_0()
+            self.initial_location = [50, 50]
+            self.agent_location = self.initial_location
+        elif map == 1:
             self.map = 1
             self.wall, self.boundary_points = map_1()
         elif map == 2:

@@ -95,11 +95,53 @@ class EnvNet(nn.Module):
     def __init__(self, env):
         super().__init__()
         self.env = env
-        self.fc1 = nn.Linear(env.observation_space.shape[0]+env.action_space.shape[0], 256)
-        self.fc2 = nn.Linear(256, 256)
-        self.mean = nn.Linear(256, env.observation_space.shape[0])
-        self.std = nn.Linear(256, env.observation_space.shape[0])
+        self.state_boundary = env.observation_space.high[0]
+        self.fc1 = nn.Linear(env.observation_space.shape[0]+env.action_space.shape[0], 512)
+        self.fc2 = nn.Linear(512, 512)
+        self.mean = nn.Linear(512, env.observation_space.shape[0])
+        self.std = nn.Linear(512, env.observation_space.shape[0])
+        self.log_std_min = -5
+        self.log_std_max = 2
         
+        nn.init.uniform_(self.fc1.weight, -0.01, 0.01)
+        nn.init.uniform_(self.fc1.bias, -0.01, 0.01)
+        nn.init.uniform_(self.fc2.weight, -0.01, 0.01)
+        nn.init.uniform_(self.fc2.bias, -0.01, 0.01)
+        nn.init.uniform_(self.mean.weight, -0.01, 0.01)
+        nn.init.uniform_(self.mean.bias, -0.01, 0.01)
+        nn.init.uniform_(self.std.weight, -0.01, 0.01)
+        nn.init.uniform_(self.std.bias, -0.01, 0.01)
+
+    def forward(self, x, a):
+        x = torch.cat([x, a], 1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        mean = self.mean(x)
+        std = self.std(x)
+        log_std = torch.tanh(std)
+        log_std = self.log_std_min + 0.5 * (self.log_std_max - self.log_std_min) * (log_std + 1)
+        std = log_std.exp()
+        normal = torch.distributions.Normal(mean, std)
+        x = normal.rsample()
+        if self.state_boundary == float('inf'):
+            pass
+        else:
+            x = torch.tanh(x)
+        return x
+    
+    def objective_function(self,s,a,s_prime):
+        x = torch.cat([s, a], 1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        mean = self.mean(x)
+        std = self.std(x)
+        log_std = torch.tanh(std)
+        std = log_std.exp()
+        normal = torch.distributions.Normal(mean, std)
+        log_prob = normal.log_prob(s_prime).sum(-1, keepdim=True)
+        return -log_prob.sum()
+
+    def env_model_reset(self):
         nn.init.uniform_(self.fc1.weight, -0.1, 0.1)
         nn.init.uniform_(self.fc1.bias, -0.1, 0.1)
         nn.init.uniform_(self.fc2.weight, -0.1, 0.1)
@@ -109,25 +151,9 @@ class EnvNet(nn.Module):
         nn.init.uniform_(self.std.weight, -0.1, 0.1)
         nn.init.uniform_(self.std.bias, -0.1, 0.1)
 
-    def forward(self, x, a):
-        x = torch.cat([x, a], 1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        mean = self.mean(x)
-        std = self.std(x)
-        log_std = torch.tanh(std)
-        log_std = LOG_STD_MIN + 0.5 * (LOG_STD_MAX - LOG_STD_MIN) * (log_std + 1)
-        std = log_std.exp()
-        normal = torch.distributions.Normal(mean, std)
-        x = normal.rsample()
-        x = torch.tanh(x)
-        return x
-
 class RNDModel(nn.Module):
     def __init__(self, env):
         super(RNDModel, self).__init__()
-        self.state_scale = torch.tensor(env.observation_space.high-env.observation_space.low).to('cuda')
-        self.state_bias = (torch.tensor(env.observation_space.high-env.observation_space.low)/2).to('cuda')
         self.scaling_coef = 3
         self.obs = env.observation_space.shape[0]
         self.predictor = nn.Sequential(
@@ -158,8 +184,6 @@ class RNDModel(nn.Module):
             param.requires_grad = False
 
     def forward(self, next_obs):
-        # normalization [-self.scaling_coef, self.scaling_coef]
-        # next_obs = 2*self.scaling_coef*(next_obs-self.state_bias)/self.state_scale
         target_feature = self.target(next_obs)
         predict_feature = self.predictor(next_obs)
         return predict_feature, target_feature.detach()
@@ -220,23 +244,16 @@ class Virtual_Actor(nn.Module):
 
         return mean, log_std
 
-    def virtual_action(self, x, actor_action=None):
+    def virtual_action(self, x):
         mean, log_std = self(x)
         std = log_std.exp()
         normal = torch.distributions.Normal(mean, std)
         x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
-        if actor_action == None:
-            y_t = torch.tanh(x_t)
-            action = y_t * self.action_scale + self.action_bias
-            log_prob = normal.log_prob(x_t)
-            # Enforcing Action Bound
-            log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
-        else:
-            y_t = (actor_action-self.action_bias)/self.action_scale
-            x_t = torch.atanh(y_t)
-            log_prob = normal.log_prob(x_t)
-            log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
-            action = actor_action
+        y_t = torch.tanh(x_t)
+        action = y_t * self.action_scale + self.action_bias
+        log_prob = normal.log_prob(x_t)
+        # Enforcing Action Bound
+        log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
         log_prob = log_prob.sum(-1, keepdim=True)
         mean = torch.tanh(mean) * self.action_scale + self.action_bias
         return action, log_prob, mean
@@ -252,7 +269,8 @@ class Virtual_Actor(nn.Module):
         # Enforcing Action Bound
         log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
         log_prob = log_prob.sum(-1, keepdim=True)
-        return -log_prob
+        # return std.sum()
+        # return -log_prob
         return entropy
     
     def gaussian_entropy(self,std_x, std_y):
@@ -332,3 +350,45 @@ class PPO_ActorCritic(nn.Module):
         state_values = self.critic(state)
         
         return action_logprobs, state_values, dist_entropy
+    
+
+class PPO_AC(nn.Module):
+    def __init__(self, envs):
+        super().__init__()
+        self.critic = nn.Sequential(
+            self.layer_init(nn.Linear(np.array(envs.observation_space.shape).prod(), 64)),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(64, 1), std=1.0),
+        )
+        self.actor_mean = nn.Sequential(
+            self.layer_init(nn.Linear(np.array(envs.observation_space.shape).prod(), 64)),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(64, np.prod(envs.action_space.shape)), std=0.01),
+        )
+        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(envs.action_space.shape))[0])
+
+    def get_value(self, x):
+        return self.critic(x)
+    
+    def layer_init(self,layer, std=np.sqrt(2), bias_const=0.0):
+        torch.nn.init.orthogonal_(layer.weight, std)
+        torch.nn.init.constant_(layer.bias, bias_const)
+        return layer
+
+    def get_action_and_value(self, x, action=None):
+        action_mean = self.actor_mean(x)
+        action_logstd = self.actor_logstd.expand_as(action_mean)
+        action_std = torch.exp(action_logstd)
+        print(action_std)
+        probs = torch.distributions.Normal(action_mean, action_std)
+        if action is None:
+            action = probs.sample()
+        return action, probs.log_prob(action).sum(), probs.entropy().sum(), self.critic(x)
+    
+    def deterministic_act(self, x):
+        action_mean = self.actor_mean(x)
+        return action_mean.detach()

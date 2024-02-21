@@ -18,42 +18,48 @@ import math
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed',type=int,default=10)
-    parser.add_argument('--n_steps',type=int,default=1000)
-    parser.add_argument('--n_total_steps',type=int,default=300000)
-    parser.add_argument("--update_timestep",type=int,default=4000)
-    parser.add_argument('--n_iter_seed',type=int,default=30)
-    parser.add_argument('--buffer_size',type=int,default=int(1e6))
-    parser.add_argument('--gamma',type=float,default=0.99)
-    parser.add_argument('--tau',type=float,default=0.005)
-    parser.add_argument('--batch_size',type=int,default=256)
-    parser.add_argument('--learning_start',type=int,default=1e3)
-    parser.add_argument('--actor_lr',type=float,default=3e-4)
-    parser.add_argument('--critic_lr',type=float,default=1e-3)
-    parser.add_argument('--policy_frequency',type=int,default=2)
-    parser.add_argument('--target_network_frequency',type=int,default=1)
-    parser.add_argument('--noise_clip',type=float,default=0.5)
-    parser.add_argument('--action_std_decay_freq',type=int,default=250000)
-    parser.add_argument('--action_std_init',type=float,default=0.6)
-    parser.add_argument('--k_epochs',type=int,default=80)
-    parser.add_argument('--action_std_decay_rate',type=float,default=0.05)
-    parser.add_argument('--min_action_std',type=float,default=0.1)
-    parser.add_argument('--alpha',type=float,default=0.5)
-    parser.add_argument("--auto_tune", type=lambda x:bool(strtobool(x)), default=False, nargs="?", const=True)
-    parser.add_argument('--mda_alpha',type=float,default=0.2)
-    parser.add_argument('--im_alpha',type=float,default=0.2)
-    parser.add_argument('--im_beta',type=float,default=0.2)
-    parser.add_argument('--cliping_discriminator',type=float,default=0.0001)
-    parser.add_argument('--d_step',type=int,default=1)
+    parser.add_argument('--n_steps',type=int,default=parameters["ContinuousGridWorld"]['n_steps'])
+    parser.add_argument('--n_total_steps',type=int,default=parameters["ContinuousGridWorld"]['n_total_steps'])
+    parser.add_argument("--update_timestep",type=int,default=parameters["ContinuousGridWorld"]['update_timestep'])
+    parser.add_argument('--n_iter_seed',type=int,default=parameters["ContinuousGridWorld"]['n_iter_seed'])
+    parser.add_argument('--buffer_size',type=int,default=parameters["ContinuousGridWorld"]['buffer_size'])
+    parser.add_argument('--gamma',type=float,default=parameters["ContinuousGridWorld"]['gamma'])
+    parser.add_argument('--tau',type=float,default=parameters["ContinuousGridWorld"]['tau'])
+    parser.add_argument('--batch_size',type=int,default=parameters["ContinuousGridWorld"]['batch_size'])
+    parser.add_argument('--learning_start',type=int,default=parameters["ContinuousGridWorld"]['learning_start'])
+    parser.add_argument('--actor_lr',type=float,default=parameters["ContinuousGridWorld"]['actor_lr'])
+    parser.add_argument('--critic_lr',type=float,default=parameters["ContinuousGridWorld"]['critic_lr'])
+    parser.add_argument('--policy_frequency',type=int,default=parameters["ContinuousGridWorld"]['policy_frequency'])
+    parser.add_argument('--target_network_frequency',type=int,default=parameters["ContinuousGridWorld"]['target_network_frequency'])
+    parser.add_argument('--action_std_decay_freq',type=int,default=parameters["ContinuousGridWorld"]['action_std_decay_freq'])
+    parser.add_argument('--action_std_init',type=float,default=parameters["ContinuousGridWorld"]['action_std_init'])
+    parser.add_argument("--clip_coef",type=float,default=parameters["ContinuousGridWorld"]['clip_coef'])
+    parser.add_argument("--ent_coef",type=float,default=parameters["ContinuousGridWorld"]['ent_coef'])
+    parser.add_argument("--vf_coef",type=float,default=parameters["ContinuousGridWorld"]['vf_coef'])
+    parser.add_argument("--max_grad_norm",type=float,default=parameters["ContinuousGridWorld"]['max_grad_norm'])
+    parser.add_argument('--k_epochs',type=int,default=parameters["ContinuousGridWorld"]['k_epochs'])
+    parser.add_argument('--action_std_decay_rate',type=float,default=parameters["ContinuousGridWorld"]['action_std_decay_rate'])
+    parser.add_argument('--min_action_std',type=float,default=parameters["ContinuousGridWorld"]['min_action_std'])
+    parser.add_argument('--alpha',type=float,default=parameters["ContinuousGridWorld"]['alpha'])
+    parser.add_argument("--auto_tune", type=lambda x:bool(strtobool(x)), default=bool(parameters["ContinuousGridWorld"]['auto_tune']), nargs="?", const=True)
+    parser.add_argument('--rnd_frequency',type=int,default=parameters["ContinuousGridWorld"]['rnd_frequency'])
+    parser.add_argument('--rnd_reset',type=bool,default=bool(parameters["ContinuousGridWorld"]['rnd_reset']))
+    parser.add_argument("--beta_scheduling", type=lambda x:bool(strtobool(x)), default=bool(parameters["ContinuousGridWorld"]['beta_scheduling']), nargs="?", const=True)
+    parser.add_argument("--beta_init",type=float,default=parameters["ContinuousGridWorld"]['beta_init'])
+    parser.add_argument("--beta_decay_freq",type=int,default=parameters["ContinuousGridWorld"]['beta_decay_freq'])
+    parser.add_argument("--beta_decay_rate",type=float,default=parameters["ContinuousGridWorld"]['beta_decay_rate'])
+    parser.add_argument("--min_beta",type=float,default=parameters["ContinuousGridWorld"]['min_beta'])
+    parser.add_argument("--no_offset",type=bool,default=bool(parameters["ContinuousGridWorld"]['no_offset']))
+    parser.add_argument('--im_alpha',type=float,default=parameters["ContinuousGridWorld"]['im_alpha'])
+    parser.add_argument('--im_beta',type=float,default=parameters["ContinuousGridWorld"]['im_beta'])
     parser.add_argument("--algo", type=bool, default=False)
-    parser.add_argument("--algorithm", type=str, default='sac')
-    parser.add_argument("--map",type=int, default=1)
+    parser.add_argument("--algorithm", type=str, default=parameters["ContinuousGridWorld"]["algorithm"])
+    parser.add_argument("--map",type=int, default=parameters["ContinuousGridWorld"]["map"])
     args = parser.parse_args()
     return args
 
 
 def play(environment, agent, num_episodes=20, episode_length=1000, train=True,seed = 0):
-    reward_per_episode = []
-    returns = deque(maxlen=100)
     visiting_times = []
     n_visitations = []
     total_step = 0
@@ -92,17 +98,16 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
 
             if terminal or timestep >= episode_length:
                 environment.reset()
-            returns.append(reward)
             
-        # fig, ax = plt.subplots(1, 3, figsize=(20, 8))
-        # t = agent.get_visiting_time()
-        # plot_visiting(ax[0],fig,environment,t)
-        # fig.savefig("./result/map:1,test,visiting_time.pdf")
-        # q = agent.get_Q()
-        # rnd = agent.get_rnd_error()
-        # entropy = agent.get_entropy()
-        # v_table = agent.get_visiting_time()
-        # visualization(environment,q,rnd,entropy,v_table)
+        fig, ax = plt.subplots(1, 3, figsize=(20, 8))
+        t = agent.get_visiting_time()
+        plot_visiting(ax[0],fig,environment,t)
+        fig.savefig("./result/map:1,test,visiting_time.png")
+        q = agent.get_Q()
+        rnd = agent.get_rnd_error()
+        entropy = agent.get_entropy()
+        v_table = agent.get_visiting_time()
+        visualization(environment,q,rnd,entropy,v_table)
         print('Training:',
               round(100*(seed*num_episodes*episode_length+total_step)/(num_episodes*episode_length*args.n_iter_seed),4),
               '%|',
@@ -114,8 +119,7 @@ def play(environment, agent, num_episodes=20, episode_length=1000, train=True,se
               seed,
               "/",
               args.n_iter_seed)
-        reward_per_episode.append(np.mean(returns))
-    return reward_per_episode,visiting_times,n_visitations
+    return visiting_times,n_visitations
 
 def loading_algorithm(env,args):
     if args.algorithm == 'sac':
@@ -143,12 +147,12 @@ def main(args):
     for i in range(args.n_iter_seed):
         args.seed += i
         agent = loading_algorithm(env,args)
-        reward_per_episode,visitings,visiting_plot = play(environment = env,
-                                                            agent = agent,
-                                                            num_episodes = num_episodes,
-                                                            episode_length = args.n_steps,
-                                                            train = True,
-                                                            seed = i)
+        visitings,visiting_plot = play(environment = env,
+                                            agent = agent,
+                                            num_episodes = num_episodes,
+                                            episode_length = args.n_steps,
+                                            train = True,
+                                            seed = i)
         v.append(visitings)
         visiting_plots.append(visiting_plot)
     save_pickle(visiting_plots, 'map:'+str(args.map)+","+args.algorithm + ',visitation_plot')
@@ -171,33 +175,6 @@ if __name__ == "__main__":
     with open('parameters.json','r') as file:
         parameters = json.load(file)
     args = parse_args()
-    args.buffer_size = parameters["ContinuousGridWorld"]['buffer_size']
-    args.n_steps = parameters["ContinuousGridWorld"]['n_steps']
-    args.n_total_steps = parameters["ContinuousGridWorld"]['n_total_steps']
-    args.update_timestep = parameters["ContinuousGridWorld"]['update_timestep']
-    args.n_iter_seed = parameters["ContinuousGridWorld"]['n_iter_seed']
-    args.gamma = parameters["ContinuousGridWorld"]['gamma']
-    args.tau = parameters["ContinuousGridWorld"]['tau']
-    args.batch_size = parameters["ContinuousGridWorld"]['batch_size']
-    args.learning_start = parameters["ContinuousGridWorld"]['learning_start']
-    args.actor_lr = parameters["ContinuousGridWorld"]['actor_lr']
-    args.critic_lr = parameters["ContinuousGridWorld"]['critic_lr']
-    args.policy_frequency = parameters["ContinuousGridWorld"]['policy_frequency']
-    args.noise_clip = parameters["ContinuousGridWorld"]['noise_clip']
-    args.k_epochs = parameters["ContinuousGridWorld"]['k_epochs']
-    args.action_std_decay_freq = parameters["ContinuousGridWorld"]['action_std_decay_freq']
-    args.action_std_init= parameters["ContinuousGridWorld"]['action_std_init']
-    args.action_std_decay_rate= parameters["ContinuousGridWorld"]['action_std_decay_rate']
-    args.min_action_std= parameters["ContinuousGridWorld"]['min_action_std']
-    args.alpha = parameters["ContinuousGridWorld"]['alpha']
-    args.auto_tune = bool(parameters["ContinuousGridWorld"]['auto_tune'])
-    args.mda_alpha = parameters["ContinuousGridWorld"]['mda_alpha']
-    args.im_alpha = parameters["ContinuousGridWorld"]['im_alpha']
-    args.im_beta = parameters["ContinuousGridWorld"]['im_beta']
-    args.cliping_discriminator = parameters["ContinuousGridWorld"]['cliping_discriminator']
-    args.d_step = int(parameters["ContinuousGridWorld"]['d_step'])
-    args.algorithm = parameters["ContinuousGridWorld"]["algorithm"]
-    args.map = parameters["ContinuousGridWorld"]["map"]
     args.algo = False
     print("algorithm:"+args.algorithm)
     print("map:"+str(args.map))

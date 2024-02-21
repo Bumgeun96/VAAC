@@ -13,24 +13,28 @@ def visualization(env,Q,rnd,entropy,v_data):
     ax[0][0].set_ylim((row_max - 0.5, -0.5))
     im = ax[0][0].imshow(Q)
     fig.colorbar(im, ax=ax[0][0], shrink=1)
+    ax[0][0].set_title('Q')
     
     
     ax[0][1].set_xlim((-0.5, col_max - 0.5))
     ax[0][1].set_ylim((row_max - 0.5, -0.5))
     im = ax[0][1].imshow(rnd)
     fig.colorbar(im, ax=ax[0][1], shrink=1)
+    ax[0][1].set_title('RND')
     
     
     ax[1][0].set_xlim((-0.5, col_max - 0.5))
     ax[1][0].set_ylim((row_max - 0.5, -0.5))
     im = ax[1][0].imshow(entropy)
     fig.colorbar(im, ax=ax[1][0], shrink=1)
+    ax[1][0].set_title('Entropy')
     
     
     ax[1][1].set_xlim((-0.5, col_max - 0.5))
     ax[1][1].set_ylim((row_max - 0.5, -0.5))
     im = ax[1][1].imshow(v_data,vmax = 10,cmap='hot')
     fig.colorbar(im, ax=ax[1][1], shrink=1)
+    ax[1][1].set_title('Visitation')
     
     walls = np.zeros([row_max, col_max])
     for w in env.wall:
@@ -80,6 +84,8 @@ def draw_env(env, savefig=True):
     plt.tick_params(axis='both', labelsize=150)
     plt.xlim((-0.5, env.col_max - 0.5))
     plt.ylim((env.row_max - 0.5, -0.5))
+    plt.xticks([0, 20, 40, 60, 80, 100], [0, 20, 40, 60, 80, 100])
+    plt.yticks([0, 20, 40, 60, 80, 100], [100, 80, 60, 40, 20, 0])
 
     if savefig:
         if env.map == 1:

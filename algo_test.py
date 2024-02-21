@@ -1,8 +1,5 @@
 import argparse
-# import gym
-# import sparse_gym_mujoco
 from envs import (GymEnv,GymEnvDelayed)
-# from gymnasium.utils.save_video import save_video
 import torch
 import numpy as np
 import random
@@ -11,43 +8,60 @@ import pickle
 from algorithm.sac import SAC_agent
 from algorithm.vaac import VAAC_agent
 from algorithm.PPO import PPO
+from algorithm.ppo import ppo
 from distutils.util import strtobool
 from collections import defaultdict
 import json
 from plotlib import save_pickle
 
 ENV = "SparseHopper-v1"
-ENV = "SparseAnt-v1"
-ENV = "SparseWalker2d-v1"
-# ENV = "SparseHalfCheetah-v1"
-
+# ENV = "SparseAnt-v1"
+# ENV = "SparseWalker2d-v1"
+ENV = "SparseHalfCheetah-v1"
+# ENV = "HumanoidStandup-v1"
+# ENV = "Humanoid-v1"
+# ENV = "DelayedAnt-v1"
 def parse_args():
+    with open('parameters.json','r') as file:
+        parameters = json.load(file) 
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed',type=int,default=10)
-    parser.add_argument('--n_iter_seed',type=int,default=20)
-    parser.add_argument('--buffer_size',type=int,default=int(1e6))
-    parser.add_argument('--gamma',type=float,default=0.99)
-    parser.add_argument('--tau',type=float,default=0.005)
-    parser.add_argument('--batch_size',type=int,default=256)
-    parser.add_argument('--learning_start',type=int,default=1e3)
-    parser.add_argument('--actor_lr',type=float,default=3e-4)
-    parser.add_argument('--critic_lr',type=float,default=1e-3)
-    parser.add_argument('--policy_frequency',type=int,default=2)
-    parser.add_argument('--target_network_frequency',type=int,default=1)
-    parser.add_argument('--noise_clip',type=float,default=0.5)
-    parser.add_argument('--action_std_decay_freq',type=int,default=250000)
-    parser.add_argument('--action_std_init',type=float,default=0.6)
-    parser.add_argument('--k_epochs',type=int,default=80)
-    parser.add_argument('--action_std_decay_rate',type=float,default=0.05)
-    parser.add_argument('--min_action_std',type=float,default=0.1)
-    parser.add_argument('--im_alpha',type=float,default=0.2)
-    parser.add_argument('--im_beta',type=float,default=0.2)
-    parser.add_argument('--alpha',type=float,default=0.5)
-    parser.add_argument("--auto_tune", type=lambda x:bool(strtobool(x)), default=True, nargs="?", const=True)
+    parser.add_argument('--n_iter_seed',type=int,default=parameters[ENV]['n_seeds'])
+    parser.add_argument('--buffer_size',type=int,default=parameters[ENV]['buffer_size'])
+    parser.add_argument('--gamma',type=float,default=parameters[ENV]['gamma'])
+    parser.add_argument('--tau',type=float,default=parameters[ENV]['tau'])
+    parser.add_argument('--batch_size',type=int,default=parameters[ENV]['batch_size'])
+    parser.add_argument('--learning_start',type=int,default=parameters[ENV]['learning_start'])
+    parser.add_argument('--actor_lr',type=float,default=parameters[ENV]['actor_lr'])
+    parser.add_argument('--critic_lr',type=float,default=parameters[ENV]['critic_lr'])
+    parser.add_argument('--policy_frequency',type=int,default=parameters[ENV]['policy_frequency'])
+    parser.add_argument('--target_network_frequency',type=int,default=parameters[ENV]['target_network_frequency'])
+    parser.add_argument('--action_std_decay_freq',type=int,default=parameters[ENV]['action_std_decay_freq'])
+    parser.add_argument('--action_std_init',type=float,default=parameters[ENV]['action_std_init'])
+    parser.add_argument('--k_epochs',type=int,default=parameters[ENV]['k_epochs'])
+    parser.add_argument('--action_std_decay_rate',type=float,default=parameters[ENV]['action_std_decay_rate'])
+    parser.add_argument('--min_action_std',type=float,default=parameters[ENV]['min_action_std'])
+    parser.add_argument('--rnd_frequency',type=int,default=parameters[ENV]['rnd_frequency'])
+    parser.add_argument('--rnd_reset',type=bool,default=bool(parameters[ENV]['rnd_reset']))
+    parser.add_argument('--im_alpha',type=float,default=parameters[ENV]['im_alpha'])
+    parser.add_argument('--im_beta',type=float,default=parameters[ENV]['im_beta'])
+    parser.add_argument('--alpha',type=float,default=parameters[ENV]['alpha'])
+    parser.add_argument("--auto_tune", type=lambda x:bool(strtobool(x)), default=bool(parameters[ENV]['auto_tune']), nargs="?", const=True)
+    parser.add_argument("--beta_scheduling", type=lambda x:bool(strtobool(x)), default=bool(parameters[ENV]['beta_scheduling']), nargs="?", const=True)
+    parser.add_argument("--beta_init",type=float,default=parameters[ENV]['beta_init'])
+    parser.add_argument("--beta_decay_freq",type=int,default=parameters[ENV]['beta_decay_freq'])
+    parser.add_argument("--beta_decay_rate",type=float,default=parameters[ENV]['beta_decay_rate'])
+    parser.add_argument("--min_beta",type=float,default=parameters[ENV]['min_beta'])
     parser.add_argument('--algo',type=bool, default=False, help="the use of the proposed algorithm")
-    parser.add_argument("--algorithm", type=str, default='sac')
-    parser.add_argument("--n_total_steps",type=int,default=1000000)
-    parser.add_argument("--update_timestep",type=int,default=4000)
+    parser.add_argument("--algorithm", type=str, default=parameters[ENV]["algorithm"])
+    parser.add_argument("--n_total_steps",type=int,default=parameters[ENV]['n_total_steps'])
+    parser.add_argument("--n_steps",type=int,default=parameters[ENV]['n_steps'])
+    parser.add_argument("--n_eval",type=int,default=parameters[ENV]['n_eval'])
+    parser.add_argument("--update_timestep",type=int,default=parameters[ENV]['update_timestep'])
+    parser.add_argument("--max_grad_norm",type=float,default=parameters[ENV]['max_grad_norm'])
+    parser.add_argument("--clip_coef",type=float,default=parameters[ENV]['clip_coef'])
+    parser.add_argument("--ent_coef",type=float,default=parameters[ENV]['ent_coef'])
+    parser.add_argument("--vf_coef",type=float,default=parameters[ENV]['vf_coef'])
     args = parser.parse_args()
     return args
 
@@ -69,7 +83,6 @@ def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval):
         for step in range(1,max_step+1):
             total_step += 1
             action = agent.action(state).cpu().detach().numpy()
-            # print(action)
             action = np.clip(action*action_high, action_low, action_high)
             next_state, reward, done, truncated = env.step(action)
             next_state = next_state.reshape((1,state_size))
@@ -80,22 +93,18 @@ def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval):
             score += reward
             if total_step % 1000 == 0:
                 try:
-                    torch.save(agent.actor.state_dict(),"./model/("+ENV+")policy.pt")
+                    torch.save(agent.actor.state_dict(),"./model/("+ENV+","+algo_args.algorithm+")policy.pt")
                     print('========================================')
                     now = datetime.now()
                     print('[',now.hour,':',now.minute,':',now.second,']','steps:',total_step + step)
                     Eval = True
                 except:
-                    torch.save(agent.policy.actor.state_dict(),"./model/("+ENV+")policy.pt")
+                    torch.save(agent.policy.actor.state_dict(),"./model/("+ENV+","+algo_args.algorithm+")policy.pt")
                     print('========================================')
                     now = datetime.now()
                     print('[',now.hour,':',now.minute,':',now.second,']','steps:',total_step + step)
                     Eval = True
             if done or step>=1000:
-                # try:
-                #     print('returns:',score[0],'step:',step)
-                # except:
-                #     print('returns:',score,'step:',step)
                 if Eval:
                     returns.append(eval(eval_env,n_eval))
                     Eval = False
@@ -109,9 +118,9 @@ def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval):
         
 def eval(eval_env,n_eval):
     try:
-        eval_agent.actor.load_state_dict(torch.load("./model/("+ENV+")policy.pt"))
+        eval_agent.actor.load_state_dict(torch.load("./model/("+ENV+","+algo_args.algorithm+")policy.pt"))
     except:
-        eval_agent.policy.actor.load_state_dict(torch.load("./model/("+ENV+")policy.pt"))
+        eval_agent.policy.actor.load_state_dict(torch.load("./model/("+ENV+","+algo_args.algorithm+")policy.pt"))
     returns = 0
     step = 0
     for _ in range(n_eval):
@@ -130,13 +139,10 @@ def eval(eval_env,n_eval):
             state = next_state.reshape((1,state_size))
             returns += reward
             if done or local_step >= 1000:
-                # save_video(eval_env.render(),
-                #            "videos",
-                #            fps=eval_env.metadata["render_fps"],
-                #            step_starting_index=step-1)
                 break
     returns /= n_eval
     step /= n_eval
+    
     print('returns:',returns,'step:',step)
     return returns
         
@@ -154,47 +160,28 @@ def loading_algorithm(env,args):
         agent = SAC_agent(env,args)
     elif args.algorithm == 'vaac':
         agent = VAAC_agent(env,args)
-    elif args.algorithm == 'ppo':
+    elif args.algorithm == 'rnd':
         agent = PPO(env,args)
     return agent
 
 if __name__ == "__main__":
     algo_args = parse_args()
     env_name = ENV
-    with open('parameters.json','r') as file:
-        parameters = json.load(file)
-        
-    algo_args.buffer_size = parameters[ENV]['buffer_size']
-    algo_args.gamma = parameters[ENV]['gamma']
-    algo_args.tau = parameters[ENV]['tau']
-    algo_args.batch_size = parameters[ENV]['batch_size']
-    algo_args.learning_start = parameters[ENV]['learning_start']
-    algo_args.actor_lr = parameters[ENV]['actor_lr']
-    algo_args.critic_lr = parameters[ENV]['critic_lr']
-    algo_args.policy_frequency = parameters[ENV]['policy_frequency']
-    algo_args.noise_clip = parameters[ENV]['noise_clip']
-    algo_args.k_epochs = parameters[ENV]['k_epochs']
-    algo_args.action_std_decay_freq = parameters[ENV]['action_std_decay_freq']
-    algo_args.action_std_init= parameters[ENV]['action_std_init']
-    algo_args.action_std_decay_rate= parameters[ENV]['action_std_decay_rate']
-    algo_args.min_action_std= parameters[ENV]['min_action_std']
-    algo_args.im_alpha = parameters[ENV]['im_alpha']
-    algo_args.im_beta = parameters[ENV]['im_beta']
-    algo_args.algorithm = parameters[ENV]["algorithm"]
-    algo_args.alpha = parameters[ENV]['alpha']
-    algo_args.auto_tune = bool(parameters[ENV]['auto_tune'])
-    algo_args.n_steps = parameters[ENV]['n_steps']
-    algo_args.update_timestep = parameters[ENV]['update_timestep']
-    algo_args.n_total_steps = parameters[ENV]['n_total_steps']
     print("algorithm:"+algo_args.algorithm)
-    seeds = [10,20,30,40,50]
+    seeds = []
+    for s in range(algo_args.n_iter_seed):
+        seeds.append(10+10*s)
     return_values = defaultdict(list)
     returns = []
     for seed in seeds:
         algo_args.seed = seed
         random_seed(seed)
-        env = GymEnv(env_name,seed = seed)
-        eval_env = GymEnv(env_name,seed = seed)
+        if 'Delayed' in env_name:
+            env = GymEnvDelayed(env_name.replace('Delayed',''),seed = seed,delay=20)
+            eval_env = GymEnvDelayed(env_name.replace('Delayed',''),seed = seed,delay=20)
+        else:
+            env = GymEnv(env_name,seed = seed)
+            eval_env = GymEnv(env_name,seed = seed)
         action_high = env.action_space.high[0]
         action_low = env.action_space.low[0]
         action_bound = [action_low,action_high]
@@ -205,8 +192,8 @@ if __name__ == "__main__":
         returns.append(train(env,
                              eval_env,
                              agent,
-                             100000,
-                             parameters[ENV]['n_steps'],
-                             parameters[ENV]['n_total_steps'],
-                             parameters[ENV]['n_eval']))
-    save_pickle(returns, 'map:'+str(ENV)+","+parameters[ENV]['algorithm'])
+                             999999999,
+                             algo_args.n_steps,
+                             algo_args.n_total_steps,
+                             algo_args.n_eval))
+    save_pickle(returns, 'map:'+str(ENV)+","+algo_args.algorithm)

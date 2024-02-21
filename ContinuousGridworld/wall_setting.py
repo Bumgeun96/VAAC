@@ -1,5 +1,11 @@
 import random
 
+def map_0():
+    wall = []
+    points = wall_line_detect(wall)
+    line_points = making_lines(points)
+    return wall, line_points
+
 def map_1():
     wall = []
     for i in range(101):
