@@ -6,11 +6,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from rl_utils.network import SoftQNetwork,Actor,Virtual_Actor,dynamics_model,re3
+from rl_utils.network import SoftQNetwork,Actor,RNDModel,Virtual_Actor,dynamics_model,re3
 from rl_utils.replay_memory import ReplayMemory as memory
 
 
-class VAAC_agent():
+class VAAC_agent_ac():
     def __init__(self,environment,args):
         # Initialize with args
         self.seed = args.seed
@@ -24,6 +24,8 @@ class VAAC_agent():
         self.policy_frequency = args.policy_frequency
         self.target_network_frequency = args.target_network_frequency
         self.alpha = args.alpha
+        self.rnd_frequency = args.rnd_frequency
+        self.rnd_reset = args.rnd_reset
         self.im_alpha = args.im_alpha
         self.beta = args.im_beta
         self.auto_tune = args.auto_tune
@@ -33,6 +35,10 @@ class VAAC_agent():
         self.beta_decay_rate = args.beta_decay_rate
         self.min_beta = args.min_beta
         self.latent_size = args.latent_size
+        try:
+            self.no_offset = args.no_offset
+        except:
+            self.no_offset = False
         self.global_step = 0
         self.env = environment
         self.action_shape = environment.action_space.shape[0]
@@ -46,7 +52,12 @@ class VAAC_agent():
         self.replay_memory = memory(self.buffer_size,
                                     self.batch_size,
                                     self.seed)
-        self.log_pi_memory = []
+        self.visit = defaultdict(lambda: np.zeros(1))
+        try:
+            self.env_row_max = environment.row_max
+            self.env_col_max = environment.col_max
+        except:
+            pass
         
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -79,22 +90,20 @@ class VAAC_agent():
         if self.beta_scheduling:
             self.beta = args.beta_init
         
+        self.rnd = RNDModel(environment,self.latent_size).to(self.device)
+        self.rnd_optimizer = optim.Adam(list(self.rnd.parameters()), lr=0.0001)
+        
         self.virtual_actor = Virtual_Actor(environment).to(self.device)
         self.virtual_actor_optimizer = optim.Adam(self.virtual_actor.parameters(), lr=0.001)
             
     def action(self,state):
         if self.global_step < self.learning_start:
             action = torch.rand(self.action_shape, ) * 2 - 1
-            # self.store_logpi(-10)
         else:
             state = state.to(self.device)
-            action, log_pi, _ = self.actor.get_action(state)
-            # self.store_logpi(log_pi.item())
+            action, _, _ = self.actor.get_action(state)
         self.global_step += 1
         return action
-    
-    def store_logpi(self,log_pi):
-        self.log_pi_memory.append(log_pi)
     
     def deterministic_act(self,state):
         _, _, deterministic_action = self.actor.get_action(state)
@@ -108,6 +117,12 @@ class VAAC_agent():
     def soft_update(self, local_model, target_model):
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*target_param.data)
+    
+    def rnd_training_buffer(self,state):
+        rnd_loss = self.rnd.rnd_bonus(state,normalize = False).sum()
+        self.rnd_optimizer.zero_grad()
+        rnd_loss.backward()
+        self.rnd_optimizer.step()
 
     def dynamics_training(self,states,actions,next_states):
         z = self.dynamics(states,actions)
@@ -130,35 +145,11 @@ class VAAC_agent():
         self.virtual_actor_optimizer.step()
         return virtual_loss.item()
     
-    def novelty_diff(self,states,next_states):
-        feats = self.random_encoder(self.dynamics_target(states))
-        next_feats = self.random_encoder(self.dynamics_target(next_states))
-        state_novelty = self.random_encoder.compute_state_entropy(feats,feats,K=50)
-        next_state_novelty = self.random_encoder.compute_state_entropy(next_feats,next_feats,K=50)
-        sum_novelty_diff = (next_state_novelty-state_novelty).sum().item()
-        mean_novelty_diff = torch.abs(next_state_novelty-state_novelty).mean().item()
-        return sum_novelty_diff, mean_novelty_diff
-    
-    def novelty_diff_is(self,states,next_states,idx):
-        feats = self.random_encoder(self.dynamics_target(states))
-        next_feats = self.random_encoder(self.dynamics_target(next_states))
-        state_novelty = self.random_encoder.compute_state_entropy(feats,feats,K=50)
-        next_state_novelty = self.random_encoder.compute_state_entropy(next_feats,next_feats,K=50)
-        log_pi = [self.log_pi_memory[i] for i in idx]
-        log_pi = torch.tensor(log_pi).to(self.device)
-        pi = torch.exp(log_pi)
-        avg_nov = ((next_state_novelty-state_novelty)/pi).mean().item()*0.001
-        return avg_nov
-    
-    def diff_err(self,states):
-        im_action,log_im_action,_=self.virtual_actor.virtual_action(states)
-        next_feats = self.random_encoder(self.dynamics_target(states,im_action))
-        feats = self.random_encoder(self.dynamics_target(states))
-        state_novelty = self.random_encoder.compute_state_entropy(feats,feats,K=50)
-        next_state_novelty = self.random_encoder.compute_state_entropy(next_feats,next_feats,K=50)
-        diff = (next_state_novelty-state_novelty)
-        (diff-diff.mean())/(diff.std())
-
+    def my(self,next_states):
+        _, im_next_state_log_pi, _ = self.virtual_actor.virtual_action(next_states)
+        pi, log_pi, _ = self.actor.get_action(next_states)
+        self.virtual_actor.log_prob(pi)
+            
     def training(self,wandb=None):
         if self.global_step > self.learning_start:
              
@@ -182,7 +173,7 @@ class VAAC_agent():
                 _, im_next_state_log_pi, _ = self.virtual_actor.virtual_action(next_states)
                 q1_target = self.critic_target1(next_states,next_actions)
                 q2_target = self.critic_target2(next_states,next_actions)
-                next_Q = torch.min(q1_target,q2_target) - self.alpha*next_state_log_pi + self.beta*(im_next_state_log_pi-((im_next_state_log_pi).mean()/(im_next_state_log_pi).std()).detach())
+                next_Q = torch.min(q1_target,q2_target) + self.beta*(im_next_state_log_pi-((im_next_state_log_pi).mean()/(im_next_state_log_pi).std()).detach())
                 target = rewards+(1-terminations)*self.gamma*next_Q
 
             q1 = self.critic1(states,actions)
@@ -195,13 +186,9 @@ class VAAC_agent():
             q_loss.backward()
             self.critic_optimizer.step()
             if self.global_step % 1000 == 0:
-                # avg_novelty_diff = self.novelty_diff_is(states,next_states,idx)
-                sum_novelty_diff, novelty_diff = self.novelty_diff(states,next_states)
-                wandb.log({"novelty diff": novelty_diff},step=self.global_step)
-                # wandb.log({"average novelty diff": avg_novelty_diff},step=self.global_step)
-                wandb.log({"sum novelty diff": sum_novelty_diff},step=self.global_step)
                 wandb.log({"q loss": q_loss.item()},step=self.global_step)
 
+            
             
             if self.beta_scheduling and self.global_step % self.beta_decay_freq == 0:
                 self.beta -= self.beta_decay_rate
@@ -248,3 +235,89 @@ class VAAC_agent():
         q = 0.5*(q1+q2)
         return q.item()
     
+    def eval_exploration(self,state):
+        z = self.dynamics_target(state).detach()
+        rnd_bonus = self.rnd.rnd_bonus(z,normalize=False)
+        return rnd_bonus
+                
+    def count_visiting(self,state):
+        self.visit[(int(np.around(state)[0]),int(np.around(state)[1]))] += 1
+
+    def get_visiting_time(self):
+        visit_table = np.zeros((self.env_row_max, self.env_col_max))
+        for row in range(self.env_row_max):
+            for col in range(self.env_col_max):
+                if (row,col) in self.env.wall:
+                    visit_table[row][col] = 0
+                else:
+                    visit_table[row][col] = self.visit[(row,col)]
+        return visit_table
+    
+    def get_rnd_error(self):
+        visiting_table = torch.tensor(self.get_visiting_time())
+        nonzero_indices = torch.nonzero(visiting_table).tolist()
+        rnd_table = np.zeros((self.env_row_max, self.env_col_max))
+        for row in range(self.env_row_max):
+            for col in range(self.env_col_max):
+                state = torch.tensor([row,col],dtype = torch.float32).cuda()
+                state = self.env.normalize(state)
+                rnd_error = self.rnd.rnd_bonus(state,False)
+                # rnd_table[row][col] = rnd_error
+                if [row,col] in nonzero_indices:
+                    rnd_table[row][col] = rnd_error
+                else:
+                    rnd_table[row][col] = None
+        return rnd_table
+    
+    
+    def get_entropy(self):
+        visiting_table = torch.tensor(self.get_visiting_time())
+        nonzero_indices = torch.nonzero(visiting_table).tolist()
+        entropy_table = np.zeros((self.env_row_max, self.env_col_max))
+        for row in range(self.env_row_max):
+            for col in range(self.env_col_max):
+                state = torch.tensor([row,col],dtype = torch.float32).cuda()
+                state = self.env.normalize(state)
+                entropy = self.virtual_actor.get_entropy(state).detach().cpu().item()
+                entropy_table[row][col] = entropy
+                if [row,col] in nonzero_indices:
+                    entropy_table[row][col] = entropy
+                else:
+                    entropy_table[row][col] = None
+        return entropy_table
+    
+    def get_policy_entropy(self):
+        visiting_table = torch.tensor(self.get_visiting_time())
+        nonzero_indices = torch.nonzero(visiting_table).tolist()
+        entropy_table = np.zeros((self.env_row_max, self.env_col_max))
+        for row in range(self.env_row_max):
+            for col in range(self.env_col_max):
+                state = torch.tensor([row,col],dtype = torch.float32).cuda()
+                _, log_prob, _ = self.actor.get_action(state)
+                if [row,col] in nonzero_indices:
+                    entropy_table[row][col] = -log_prob
+                else:
+                    entropy_table[row][col] = None
+        return entropy_table
+    
+    def get_Q(self):
+        visiting_table = torch.tensor(self.get_visiting_time())
+        nonzero_indices = torch.nonzero(visiting_table).tolist()
+        Q_table = np.zeros((self.env_row_max, self.env_col_max))
+        for row in range(self.env_row_max):
+            for col in range(self.env_col_max):
+                state = torch.tensor([row,col],dtype = torch.float32).cuda()
+                state = self.env.normalize(state)
+                action, _, _ = self.actor.get_action(state)
+                state = state.unsqueeze(dim=0)
+                action = action.unsqueeze(dim=0)
+                if [row,col] in nonzero_indices:
+                    Q_table[row][col] = min(self.critic1(state,action),self.critic1(state,action))
+                else:
+                    Q_table[row][col] = None
+        return Q_table
+    
+    def count_visitation(self):
+        return np.count_nonzero(self.get_visiting_time())
+
+        

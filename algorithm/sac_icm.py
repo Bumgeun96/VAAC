@@ -7,14 +7,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from rl_utils.network import SoftQNetwork,Actor
+from rl_utils.network import SoftQNetwork,Actor,icm
 from rl_utils.replay_memory import ReplayMemory as memory
 
 
-class SAC_agent():
+class SAC_icm_agent():
     def __init__(self,environment,args):
         # Initialize with args
-        self.algo = args.algo
         self.seed = args.seed
         self.buffer_size = args.buffer_size
         self.gamma = args.gamma
@@ -31,6 +30,9 @@ class SAC_agent():
         self.global_step = 0
         self.env = environment
         self.action_shape = environment.action_space.shape[0]
+        self.latent_size = args.latent_size
+        self.icm_beta = args.icm_beta
+        self.icm_reward_scaling = args.icm_reward_scaling
         
         # Set a random seed
         random.seed(self.seed)
@@ -58,7 +60,11 @@ class SAC_agent():
         self.critic_target2.load_state_dict(self.critic2.state_dict())
         self.critic_optimizer = optim.Adam(list(self.critic1.parameters()) + list(self.critic2.parameters()), lr=self.critic_lr)
         self.actor_optimizer = optim.Adam(list(self.actor.parameters()), lr=self.actor_lr)
-        
+        self.icm = icm(environment,self.latent_size).to(self.device)
+        self.icm_optimizer = optim.Adam(list(self.icm.encoder.parameters())+
+                                        list(self.icm.decoder.parameters())+
+                                        list(self.icm.inverse_model.parameters()),lr=self.critic_lr)
+
         if self.auto_tune:
             self.target_entropy = -torch.prod(torch.Tensor(environment.action_space.shape).to(self.device)).item()
             self.log_alpha = torch.tensor(-0.5, requires_grad=True, device=self.device)
@@ -81,6 +87,22 @@ class SAC_agent():
         _, _, deterministic_action = self.actor.get_action(state)
         return deterministic_action
     
+    def compute_loss(self,state,action,next_state):
+        pred_action = self.icm.action_pred(state,next_state)
+        inverse_loss = F.mse_loss(action,pred_action)
+        pred_next_z = self.icm.forward_model(state,action)
+        next_z = self.icm.encoder(next_state)
+        forward_loss = F.mse_loss(next_z.detach(),pred_next_z)
+        loss = self.icm_beta*forward_loss + (1-self.icm_beta)*inverse_loss
+        return loss
+
+    def compute_reward(self,state,action,next_state):
+        with torch.no_grad():
+            pred_next_z = self.icm.forward_model(state,action)
+            next_z = self.icm.encoder(next_state)
+            reward = ((next_z - pred_next_z)**2).sum(axis=1,keepdims=True)
+        return reward
+    
     def store_experience(self,state,action,reward,next_state,terminal,_=None):
         self.replay_memory.add(state,action,reward,next_state,terminal)
         
@@ -97,13 +119,15 @@ class SAC_agent():
             rewards = rewards.to(self.device)
             next_states = next_states.to(self.device)
             terminations = terminations.to(self.device)
-            
+
+            icm_rewards = self.compute_reward(states,actions,next_states)
+            icm_rewards = (icm_rewards-icm_rewards.mean())/(icm_rewards.std())
             with torch.no_grad():
                 next_actions, next_state_log_pi, _ = self.actor.get_action(next_states)
                 q1_target = self.critic_target1(next_states,next_actions)
                 q2_target = self.critic_target2(next_states,next_actions)
                 next_Q = torch.min(q1_target,q2_target) - self.alpha*next_state_log_pi
-                target = rewards+(1-terminations)*self.gamma*next_Q
+                target = self.icm_reward_scaling*icm_rewards+rewards+(1-terminations)*self.gamma*next_Q
 
             q1 = self.critic1(states,actions)
             q2 = self.critic2(states,actions)
@@ -116,6 +140,14 @@ class SAC_agent():
             self.critic_optimizer.step()
             if self.global_step % 1000 == 0:
                 wandb.log({"q loss": q_loss.item()},step=self.global_step)
+
+            icm_loss = self.compute_loss(states,actions,next_states)
+            self.icm_optimizer.zero_grad()
+            icm_loss.backward()
+            self.icm_optimizer.step()
+            if self.global_step % 1000 == 0:
+                wandb.log({"icm loss": icm_loss},step = self.global_step)
+
             
             # TD3 delayed update
             if self.global_step % self.policy_frequency == 0:
@@ -147,7 +179,7 @@ class SAC_agent():
             if self.global_step % self.target_network_frequency == 0:
                 self.soft_update(self.critic1,self.critic_target1)
                 self.soft_update(self.critic2,self.critic_target2)
-                
+    
     def q_eval(self,state,action):
         state = torch.tensor(state).to(self.device)
         action = torch.tensor(action).to(self.device)
@@ -155,3 +187,4 @@ class SAC_agent():
         q2 = self.critic2.q_eval(state,action)
         q = 0.5*(q1+q2)
         return q.item()
+    
