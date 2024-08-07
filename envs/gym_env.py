@@ -58,7 +58,7 @@ class NoVideoSchedule(object):
 
 class GymEnv(Env, Serializable):
     def __init__(self, env_name,seed = 0, record_video=False, video_schedule=None, log_dir=None, record_log=False,
-                 force_reset=True):
+                 force_reset=True,sparsity_level = 1):
         Serializable.quick_init(self, locals())
         env = gym.envs.make(env_name)
         env.seed(seed)
@@ -67,7 +67,8 @@ class GymEnv(Env, Serializable):
         # therefore the environment is not Markovian (terminal condition depends
         # on time rather than state).
         env = env.env
-
+        env.sparsity_level = sparsity_level
+        print(env.sparsity_level)
         self.env = env
         self.env_id = env.spec.id
 

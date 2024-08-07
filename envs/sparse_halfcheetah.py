@@ -21,7 +21,8 @@ class SparseHalfCheetahEnv(MujocoEnv, utils.EzPickle):
 
         # --------- Sparse Reward ---------
         # a reward +1 is given for every time the agent moves forward over a specific number of units.
-        if xposafter - self.init_qpos[0] > 5.:
+        if xposafter - self.init_qpos[0] > self.sparsity_level*4-3:
+        # if xposafter - self.init_qpos[0] > 5.:
             reward=1.
         else:
             reward=0.

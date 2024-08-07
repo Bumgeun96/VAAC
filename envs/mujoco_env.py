@@ -19,6 +19,8 @@ class MujocoEnv(gym.Env):
 
     def __init__(self, model_path, frame_skip):
 
+        self.sparsity_level = 5
+
         if model_path.startswith("/"):
             fullpath = model_path
         else:

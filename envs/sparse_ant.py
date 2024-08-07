@@ -7,13 +7,13 @@ class SparseAntEnv(MujocoEnv, utils.EzPickle):
     def __init__(self):
         MujocoEnv.__init__(self, 'ant.xml', 5)
         utils.EzPickle.__init__(self)
-
+        
     def _step(self, a):
-        # xposbefore = self.get_body_com("torso")[0]
-        xposbefore = self.model.data.qpos[0, 0]
+        xposbefore = self.get_body_com("torso")[0]
+        # xposbefore = self.model.data.qpos[0, 0]
         self.do_simulation(a, self.frame_skip)
-        # xposafter = self.get_body_com("torso")[0]
-        xposafter = self.model.data.qpos[0, 0]
+        xposafter = self.get_body_com("torso")[0]
+        # xposafter = self.model.data.qpos[0, 0]
 
         # --------- Dense Reward ---------
         # forward_reward = (xposafter - xposbefore)/self.dt
@@ -25,7 +25,10 @@ class SparseAntEnv(MujocoEnv, utils.EzPickle):
 
         # --------- Sparse Reward ---------
         # a reward +1 is given for every time the agent moves forward over a specific number of units.
-        if xposafter - self.init_qpos[0] > 1.:
+        # reward = int((xposafter-xposbefore)>15.)
+        # if int((xposafter-xposbefore)>15.):
+
+        if xposafter - self.init_qpos[0] > self.sparsity_level*0.75+0.25:
             reward=1.
         else:
             reward=0.

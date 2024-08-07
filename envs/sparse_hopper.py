@@ -21,7 +21,8 @@ class SparseHopperEnv(MujocoEnv, utils.EzPickle):
 
         # --------- Sparse Reward ---------
         # a reward +1 is given for every time the agent moves forward over a specific number of units.
-        if posafter - self.init_qpos[0] > 1.:
+        if posafter - self.init_qpos[0] > self.sparsity_level*1.2-0.2:
+        # if posafter - self.init_qpos[0] > 1.:
             reward=1.
         else:
             reward=0.

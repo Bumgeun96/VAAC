@@ -4,22 +4,98 @@ import torch.nn.functional as F
 from torch.distributions import MultivariateNormal
 import numpy as np
 
-class discriminator(nn.Module):
-    def __init__(self, env, epsilon = 0.0001):
+class re3(nn.Module):
+    def __init__(self,input_size,latent_size,k=3):
         super().__init__()
-        self.epsilon = epsilon
-        self.obs_high = torch.tensor([env.observation_space.high])
-        self.obs_low = torch.tensor([env.observation_space.low])
-        self.fc1 = nn.Linear(env.observation_space.shape[0]+env.action_space.shape[0], 256)
-        self.fc2 = nn.Linear(256, 256)
-        self.fc3 = nn.Linear(256, 1)
+        self.k = k
+        self.encoder = nn.Sequential(
+            nn.Linear(input_size,256),
+            nn.ReLU(),
+            nn.Linear(256,256),
+            nn.ReLU(),
+            nn.Linear(256,latent_size),
+            nn.LayerNorm(latent_size)
+        )
 
-    def forward(self, x, a):
-        x = (x-self.obs_low.to('cuda'))/(self.obs_high-self.obs_low).to('cuda')
-        x = torch.cat([x, a], 1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return torch.clamp(torch.sigmoid(self.fc3(x)),min=self.epsilon,max=1-self.epsilon)
+    def forward(self,state):
+        feature_vector = self.encoder(state)
+        return feature_vector
+
+    def compute_state_entropy(self,src_feats,tgt_feats,K=None):
+        if K == None:
+            k = self.k
+        else:
+            k = K
+        with torch.no_grad():
+            dists = []
+            for idx in range(len(tgt_feats)//10000+1):
+                start = idx*10000
+                end = (idx+1)*10000
+                dist = torch.norm(
+                    src_feats[:,None,:]-tgt_feats[None,start:end,:],
+                    dim=-1,
+                    p=2)
+                dists.append(dist)
+            dists = torch.cat(dists,dim=1)
+            knn_dists = 0.0
+            for k in range(k):
+                knn_dists += torch.kthvalue(dists,k+1,dim=1).values
+            knn_dists /= k
+            state_entropy = knn_dists
+        return state_entropy.unsqueeze(1)
+    
+class rnd(nn.Module):
+    def __init__(self,env,latent_size):
+        super().__init__()
+        input_size = env.observation_space.shape[0]
+        self.model = nn.Sequential(
+            nn.Linear(input_size,256),
+            nn.ReLU(),
+            nn.Linear(256,256),
+            nn.ReLU(),
+            nn.Linear(256,latent_size)
+        )
+        self.target = nn.Sequential(
+            nn.Linear(input_size,256),
+            nn.ReLU(),
+            nn.Linear(256,256),
+            nn.ReLU(),
+            nn.Linear(256,latent_size)
+        )
+
+    def get_reward(self,state):
+        reward = ((self.target(state).detach()-self.model(state))**2).sum(dim=1,keepdims=True)
+        return reward
+    
+class dynamics_model(nn.Module):
+    def __init__(self, env, latent_size):
+        super().__init__()
+        self.en1 = nn.Linear(env.observation_space.shape[0],256)
+        self.en2 = nn.Linear(256,latent_size)
+
+        self.de1 = nn.Linear(latent_size+env.action_space.shape[0],512)
+        self.de2 = nn.Linear(512,512)
+        self.de3 = nn.Linear(512,latent_size)
+    
+    def forward(self,state,action=None):
+        z = self.encoder(state)
+        if action==None:
+            return z
+        else:
+            z_prime = self.decoder(z,action)
+            return z_prime
+
+    def encoder(self, state):
+        z = F.relu(self.en1(state))
+        z = self.en2(z)
+        return z
+    
+    def decoder(self, z, action):
+        z = torch.cat([z, action], 1)
+        z = F.relu(self.de1(z))
+        z = F.relu(self.de2(z))
+        z = self.de3(z)
+        return z
 
 class SoftQNetwork(nn.Module):
     def __init__(self, env):
@@ -30,6 +106,13 @@ class SoftQNetwork(nn.Module):
 
     def forward(self, x, a):
         x = torch.cat([x, a], 1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+    
+    def q_eval(self,state,action):
+        x = torch.cat([state,action])
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -90,74 +173,14 @@ class Actor(nn.Module):
         log_prob = log_prob.sum(-1, keepdim=True)
         mean = torch.tanh(mean) * self.action_scale + self.action_bias
         return action, log_prob, mean
-    
-class EnvNet(nn.Module):
-    def __init__(self, env):
-        super().__init__()
-        self.env = env
-        self.state_boundary = env.observation_space.high[0]
-        self.fc1 = nn.Linear(env.observation_space.shape[0]+env.action_space.shape[0], 512)
-        self.fc2 = nn.Linear(512, 512)
-        self.mean = nn.Linear(512, env.observation_space.shape[0])
-        self.std = nn.Linear(512, env.observation_space.shape[0])
-        self.log_std_min = -5
-        self.log_std_max = 2
-        
-        nn.init.uniform_(self.fc1.weight, -0.01, 0.01)
-        nn.init.uniform_(self.fc1.bias, -0.01, 0.01)
-        nn.init.uniform_(self.fc2.weight, -0.01, 0.01)
-        nn.init.uniform_(self.fc2.bias, -0.01, 0.01)
-        nn.init.uniform_(self.mean.weight, -0.01, 0.01)
-        nn.init.uniform_(self.mean.bias, -0.01, 0.01)
-        nn.init.uniform_(self.std.weight, -0.01, 0.01)
-        nn.init.uniform_(self.std.bias, -0.01, 0.01)
-
-    def forward(self, x, a):
-        x = torch.cat([x, a], 1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        mean = self.mean(x)
-        std = self.std(x)
-        log_std = torch.tanh(std)
-        log_std = self.log_std_min + 0.5 * (self.log_std_max - self.log_std_min) * (log_std + 1)
-        std = log_std.exp()
-        normal = torch.distributions.Normal(mean, std)
-        x = normal.rsample()
-        if self.state_boundary == float('inf'):
-            pass
-        else:
-            x = torch.tanh(x)
-        return x
-    
-    def objective_function(self,s,a,s_prime):
-        x = torch.cat([s, a], 1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        mean = self.mean(x)
-        std = self.std(x)
-        log_std = torch.tanh(std)
-        std = log_std.exp()
-        normal = torch.distributions.Normal(mean, std)
-        log_prob = normal.log_prob(s_prime).sum(-1, keepdim=True)
-        return -log_prob.sum()
-
-    def env_model_reset(self):
-        nn.init.uniform_(self.fc1.weight, -0.1, 0.1)
-        nn.init.uniform_(self.fc1.bias, -0.1, 0.1)
-        nn.init.uniform_(self.fc2.weight, -0.1, 0.1)
-        nn.init.uniform_(self.fc2.bias, -0.1, 0.1)
-        nn.init.uniform_(self.mean.weight, -0.1, 0.1)
-        nn.init.uniform_(self.mean.bias, -0.1, 0.1)
-        nn.init.uniform_(self.std.weight, -0.1, 0.1)
-        nn.init.uniform_(self.std.bias, -0.1, 0.1)
 
 class RNDModel(nn.Module):
-    def __init__(self, env):
+    def __init__(self, env, latent_size):
         super(RNDModel, self).__init__()
-        self.scaling_coef = 3
         self.obs = env.observation_space.shape[0]
+        self.obs = latent_size
         self.predictor = nn.Sequential(
-            nn.Linear(env.observation_space.shape[0], 256),
+            nn.Linear(self.obs, 256),
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.ReLU(),
@@ -167,7 +190,7 @@ class RNDModel(nn.Module):
         )
         
         self.target = nn.Sequential(
-            nn.Linear(env.observation_space.shape[0], 256),
+            nn.Linear(self.obs, 256),
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.ReLU(),
@@ -232,7 +255,6 @@ class Virtual_Actor(nn.Module):
         self.register_buffer(
             "action_bias", torch.tensor((env.action_space.high[0] + env.action_space.low[0]) / 2.0, dtype=torch.float32)
         )
-            
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
@@ -257,6 +279,12 @@ class Virtual_Actor(nn.Module):
         log_prob = log_prob.sum(-1, keepdim=True)
         mean = torch.tanh(mean) * self.action_scale + self.action_bias
         return action, log_prob, mean
+    
+    def log_prob(self,action):
+        y_t = (action - self.action_bias)/self.action_scale
+        log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + 1e-6)
+        log_prob = log_prob.sum(-1, keepdim=True)
+        return log_prob
 
     def get_entropy(self,x):
         mean, log_std = self(x)
@@ -392,3 +420,51 @@ class PPO_AC(nn.Module):
     def deterministic_act(self, x):
         action_mean = self.actor_mean(x)
         return action_mean.detach()
+
+class icm(nn.Module):
+    def __init__(self,env,latent_size):
+        super().__init__()
+
+        # action rescaling
+        self.register_buffer(
+            "action_scale", torch.tensor((env.action_space.high[0] - env.action_space.low[0]) / 2.0, dtype=torch.float32)
+        )
+        self.register_buffer(
+            "action_bias", torch.tensor((env.action_space.high[0] + env.action_space.low[0]) / 2.0, dtype=torch.float32)
+        )
+
+        self.encoder = nn.Sequential(
+            nn.Linear(env.observation_space.shape[0],256),
+            nn.ReLU(),
+            nn.Linear(256,latent_size),
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(latent_size+env.action_space.shape[0],512),
+            nn.ReLU(),
+            nn.Linear(512,512),
+            nn.ReLU(),
+            nn.Linear(512,latent_size)
+        )
+        self.inverse_model = nn.Sequential(
+            nn.Linear(2*latent_size,512),
+            nn.ReLU(),
+            nn.Linear(512,512),
+            nn.ReLU(),
+            nn.Linear(512,env.action_space.shape[0]),
+            nn.Tanh()
+        )
+
+    def action_pred(self,state,next_state):
+        z = self.encoder(state)
+        z_prime = self.encoder(next_state)
+        action = self.inverse_model(torch.cat([z,z_prime],dim=1))
+        action = action * self.action_scale + self.action_bias
+        return action
+    
+    def forward_model(self,state,action):
+        z = self.encoder(state)
+        z_prime = self.decoder(torch.cat([z,action],dim=1))
+        return z_prime
+    
+    def forward(self):
+        raise NotImplementedError

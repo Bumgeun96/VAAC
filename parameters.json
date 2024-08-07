@@ -7,13 +7,17 @@
         "n_total_steps": 1000000,
         "n_eval": 1,
         "n_seeds": 5,
+        "sparsity_level":5,
 
         "__comment2__":"RL parameters",
         "gamma": 0.99,
         "learning_start": 10000,
-        "algorithm": "vaac",
+        "algorithm": "noveld",
 
-        "__comment3__":"RND parameters",
+        "__comment3__":"Dynamics model parameters",
+        "latent_size": 30,
+
+        "__comment4__":"RND parameters",
         "action_std_decay_freq": 50000,
         "action_std_init": 0.6,
         "action_std_decay_rate": 0.05,
@@ -24,8 +28,9 @@
         "vf_coef":0.5,
         "k_epochs": 40,
         "update_timestep": 4000,
+        "rnd_reward_scaling": 0.05,
         
-        "__comment4__":"Off-policy parameters",
+        "__comment5__":"Off-policy parameters",
         "reward_scale": 5,
         "buffer_size": 1000000,
         "tau": 0.005,
@@ -35,11 +40,11 @@
         "policy_frequency": 2,
         "target_network_frequency": 1,
 
-        "__comment5__":"SAC parameters",
+        "__comment6__":"SAC parameters",
         "alpha": 0.2,
         "auto_tune": 1,
 
-        "__comment6__":"VAAC parameters",
+        "__comment7__":"VAAC parameters",
         "rnd_frequency":10000,
         "rnd_reset":0,
         "im_alpha": 0.2,
@@ -48,23 +53,38 @@
         "beta_init":1,
         "beta_decay_freq":1000,
         "beta_decay_rate":0.01,
-        "min_beta": 0.2
+        "min_beta": 0.2,
+
+        "__comment8__":"re3 parameters",
+        "re3_scale":0.05,
+
+        "__comment9__":"icm parameters",
+        "icm_beta":0.2,
+        "icm_reward_scaling":0.05,
+
+        "__comment10__":"noveld parameters",
+        "noveld_alpha":0.5,
+        "noveld_reward_scaling":0.05
     },
     "SparseWalker2d-v1":
     {
         "__comment1__":"Env_parameters",
         "env":"SparseWalker2d-v1",
         "n_steps": 1000,
-        "n_total_steps": 1000000,
+        "n_total_steps": 2000000,
         "n_eval": 1,
         "n_seeds": 5,
+        "sparsity_level":5,
 
         "__comment2__":"RL parameters",
         "gamma": 0.99,
         "learning_start": 10000,
-        "algorithm": "vaac",
+        "algorithm": "re3",
 
-        "__comment3__":"RND parameters",
+        "__comment3__":"Dynamics model parameters",
+        "latent_size": 50,
+
+        "__comment4__":"RND parameters",
         "action_std_decay_freq": 50000,
         "action_std_init": 0.6,
         "action_std_decay_rate": 0.05,
@@ -75,8 +95,9 @@
         "vf_coef":0.5,
         "k_epochs": 40,
         "update_timestep": 4000,
+        "rnd_reward_scaling": 0.01,
         
-        "__comment4__":"Off-policy parameters",
+        "__comment5__":"Off-policy parameters",
         "reward_scale": 5,
         "buffer_size": 1000000,
         "tau": 0.005,
@@ -86,20 +107,32 @@
         "policy_frequency": 2,
         "target_network_frequency": 1,
 
-        "__comment5__":"SAC parameters",
+        "__comment6__":"SAC parameters",
         "alpha": 0.2,
         "auto_tune": 1,
 
-        "__comment6__":"VAAC parameters",
+        "__comment7__":"VAAC parameters",
         "rnd_frequency":10000,
         "rnd_reset":0,
         "im_alpha": 0.1,
-        "im_beta": 0.05,
+        "im_beta": 0.01,
         "beta_scheduling":0,
         "beta_init":0.5,
         "beta_decay_freq":3000,
         "beta_decay_rate":0.01,
-        "min_beta": 0.01
+        "min_beta": 0.01,
+
+        "__comment8__":"re3 parameters",
+        "re3_scale":0.01,
+
+        "__comment9__":"icm parameters",
+        "icm_beta":0.2,
+        "icm_reward_scaling":0.01,
+
+        "__comment10__":"noveld parameters",
+        "noveld_alpha":0.5,
+        "noveld_reward_scaling":0.01
+
     },
     "SparseAnt-v1":
     {
@@ -109,13 +142,17 @@
         "n_total_steps": 3000000,
         "n_eval": 1,
         "n_seeds": 5,
+        "sparsity_level":5,
 
         "__comment2__":"RL parameters",
         "gamma": 0.99,
         "learning_start": 10000,
-        "algorithm": "rnd",
+        "algorithm": "sac",
 
-        "__comment3__":"RND parameters",
+        "__comment3__":"Dynamics model parameters",
+        "latent_size": 50,
+
+        "__comment4__":"RND parameters",
         "action_std_decay_freq": 50000,
         "action_std_init": 0.6,
         "action_std_decay_rate": 0.05,
@@ -126,8 +163,9 @@
         "vf_coef":0.5,
         "k_epochs": 40,
         "update_timestep": 4000,
+        "rnd_reward_scaling": 0.15,
         
-        "__comment4__":"Off-policy parameters",
+        "__comment5__":"Off-policy parameters",
         "reward_scale": 5,
         "buffer_size": 1000000,
         "tau": 0.005,
@@ -137,20 +175,31 @@
         "policy_frequency": 2,
         "target_network_frequency": 1,
 
-        "__comment5__":"SAC parameters",
+        "__comment6__":"SAC parameters",
         "alpha": 0.2,
         "auto_tune": 1,
 
-        "__comment6__":"VAAC parameters",
+        "__comment7__":"VAAC parameters",
         "rnd_frequency":1000,
         "rnd_reset":0,
-        "im_alpha": 0.01,
-        "im_beta": 0.15,
+        "im_alpha": 0.2,
+        "im_beta": 0.07,
         "beta_scheduling":0,
         "beta_init":0.8,
         "beta_decay_freq":2000,
         "beta_decay_rate":0.01,
-        "min_beta": 0.05
+        "min_beta": 0.05,
+
+        "__comment8__":"re3 parameters",
+        "re3_scale":0.15,
+
+        "__comment9__":"icm parameters",
+        "icm_beta":0.2,
+        "icm_reward_scaling":0.15,
+
+        "__comment10__":"noveld parameters",
+        "noveld_alpha":0.5,
+        "noveld_reward_scaling":0.15
     },
     "SparseHalfCheetah-v1":
     {
@@ -160,13 +209,17 @@
         "n_total_steps": 1000000,
         "n_eval": 1,
         "n_seeds": 5,
+        "sparsity_level":5,
 
         "__comment2__":"RL parameters",
         "gamma": 0.99,
         "learning_start": 10000,
         "algorithm": "vaac",
 
-        "__comment3__":"RND parameters",
+        "__comment3__":"Dynamics model parameters",
+        "latent_size": 50,
+
+        "__comment4__":"RND parameters",
         "action_std_decay_freq": 50000,
         "action_std_init": 0.6,
         "action_std_decay_rate": 0.05,
@@ -177,8 +230,9 @@
         "vf_coef":0.5,
         "k_epochs": 40,
         "update_timestep": 4000,
+        "rnd_reward_scaling": 0.05,
         
-        "__comment4__":"Off-policy parameters",
+        "__comment5__":"Off-policy parameters",
         "reward_scale": 5,
         "buffer_size": 1000000,
         "tau": 0.005,
@@ -188,11 +242,11 @@
         "policy_frequency": 2,
         "target_network_frequency": 1,
 
-        "__comment5__":"SAC parameters",
+        "__comment6__":"SAC parameters",
         "alpha": 0.2,
         "auto_tune": 1,
 
-        "__comment6__":"VAAC parameters",
+        "__comment7__":"VAAC parameters",
         "rnd_frequency":10000,
         "rnd_reset":0,
         "im_alpha": 0.2,
@@ -201,7 +255,287 @@
         "beta_init":0.5,
         "beta_decay_freq":1000,
         "beta_decay_rate":0.01,
-        "min_beta": 0.1
+        "min_beta": 0.1,
+
+        "__comment8__":"re3 parameters",
+        "re3_scale":0.05,
+
+        "__comment9__":"icm parameters",
+        "icm_beta":0.2,
+        "icm_reward_scaling":0.05,
+
+        "__comment10__":"noveld parameters",
+        "noveld_alpha":0.5,
+        "noveld_reward_scaling":0.05
+    },
+    "DelayedHopper-v1":
+    {
+        "__comment1__":"Env_parameters",
+        "env":"DelayedHopper-v1",
+        "n_steps": 1000,
+        "n_total_steps": 1000000,
+        "n_eval": 1,
+        "n_seeds": 5,
+        "delayed_level":30,
+
+        "__comment2__":"RL parameters",
+        "gamma": 0.99,
+        "learning_start": 10000,
+        "algorithm": "vaac(ac)",
+
+        "__comment3__":"Dynamics model parameters",
+        "latent_size": 30,
+
+        "__comment4__":"RND parameters",
+        "action_std_decay_freq": 50000,
+        "action_std_init": 0.6,
+        "action_std_decay_rate": 0.05,
+        "min_action_std": 0.1,
+        "max_grad_norm":0.5,
+        "clip_coef":0.2,
+        "ent_coef":0.01,
+        "vf_coef":0.5,
+        "k_epochs": 40,
+        "update_timestep": 4000,
+        "rnd_reward_scaling": 0.05,
+        
+        "__comment5__":"Off-policy parameters",
+        "reward_scale": 5,
+        "buffer_size": 1000000,
+        "tau": 0.005,
+        "batch_size": 256,
+        "actor_lr": 0.0003,
+        "critic_lr": 0.001,
+        "policy_frequency": 2,
+        "target_network_frequency": 1,
+
+        "__comment6__":"SAC parameters",
+        "alpha": 0.2,
+        "auto_tune": 1,
+
+        "__comment7__":"VAAC parameters",
+        "rnd_frequency":10000,
+        "rnd_reset":0,
+        "im_alpha": 0.2,
+        "im_beta": 0.05,
+        "beta_scheduling":0,
+        "beta_init":1,
+        "beta_decay_freq":1000,
+        "beta_decay_rate":0.01,
+        "min_beta": 0.2,
+
+        "__comment8__":"re3 parameters",
+        "re3_scale":0.05,
+
+        "__comment9__":"icm parameters",
+        "icm_beta":0.2,
+        "icm_reward_scaling":0.05,
+
+        "__comment10__":"noveld parameters",
+        "noveld_alpha":0.5,
+        "noveld_reward_scaling":0.05
+    },
+    "DelayedWalker2d-v1":
+    {
+        "__comment1__":"Env_parameters",
+        "env":"DelayedWalker2d-v1",
+        "n_steps": 1000,
+        "n_total_steps": 2000000,
+        "n_eval": 1,
+        "n_seeds": 5,
+        "delayed_level":20,
+
+        "__comment2__":"RL parameters",
+        "gamma": 0.99,
+        "learning_start": 10000,
+        "algorithm": "vaac",
+
+        "__comment3__":"Dynamics model parameters",
+        "latent_size": 50,
+
+        "__comment4__":"RND parameters",
+        "action_std_decay_freq": 50000,
+        "action_std_init": 0.6,
+        "action_std_decay_rate": 0.05,
+        "min_action_std": 0.1,
+        "max_grad_norm":0.5,
+        "clip_coef":0.2,
+        "ent_coef":0.01,
+        "vf_coef":0.5,
+        "k_epochs": 40,
+        "update_timestep": 4000,
+        "rnd_reward_scaling": 0.01,
+        
+        "__comment5__":"Off-policy parameters",
+        "reward_scale": 5,
+        "buffer_size": 1000000,
+        "tau": 0.005,
+        "batch_size": 256,
+        "actor_lr": 0.0003,
+        "critic_lr": 0.001,
+        "policy_frequency": 2,
+        "target_network_frequency": 1,
+
+        "__comment6__":"SAC parameters",
+        "alpha": 0.2,
+        "auto_tune": 1,
+
+        "__comment7__":"VAAC parameters",
+        "rnd_frequency":10000,
+        "rnd_reset":0,
+        "im_alpha": 0.1,
+        "im_beta": 0.01,
+        "beta_scheduling":0,
+        "beta_init":0.5,
+        "beta_decay_freq":3000,
+        "beta_decay_rate":0.01,
+        "min_beta": 0.01,
+
+        "__comment8__":"re3 parameters",
+        "re3_scale":0.01,
+
+        "__comment9__":"icm parameters",
+        "icm_beta":0.2,
+        "icm_reward_scaling":0.01,
+
+        "__comment10__":"noveld parameters",
+        "noveld_alpha":0.5,
+        "noveld_reward_scaling":0.01
+
+    },
+    "DelayedAnt-v1":
+    {
+        "__comment1__":"Env_parameters",
+        "env":"DelayedAnt-v1",
+        "n_steps": 1000,
+        "n_total_steps": 3000000,
+        "n_eval": 1,
+        "n_seeds": 5,
+        "delayed_level":20,
+
+        "__comment2__":"RL parameters",
+        "gamma": 0.99,
+        "learning_start": 10000,
+        "algorithm": "rnd",
+
+        "__comment3__":"Dynamics model parameters",
+        "latent_size": 50,
+
+        "__comment4__":"RND parameters",
+        "action_std_decay_freq": 50000,
+        "action_std_init": 0.6,
+        "action_std_decay_rate": 0.05,
+        "min_action_std": 0.1,
+        "max_grad_norm":0.5,
+        "clip_coef":0.2,
+        "ent_coef":0.01,
+        "vf_coef":0.5,
+        "k_epochs": 40,
+        "update_timestep": 4000,
+        "rnd_reward_scaling": 0.15,
+        
+        "__comment5__":"Off-policy parameters",
+        "reward_scale": 5,
+        "buffer_size": 1000000,
+        "tau": 0.005,
+        "batch_size": 256,
+        "actor_lr": 0.0003,
+        "critic_lr": 0.001,
+        "policy_frequency": 2,
+        "target_network_frequency": 1,
+
+        "__comment6__":"SAC parameters",
+        "alpha": 0.2,
+        "auto_tune": 1,
+
+        "__comment7__":"VAAC parameters",
+        "rnd_frequency":1000,
+        "rnd_reset":0,
+        "im_alpha": 0.2,
+        "im_beta": 0.07,
+        "beta_scheduling":0,
+        "beta_init":0.8,
+        "beta_decay_freq":2000,
+        "beta_decay_rate":0.01,
+        "min_beta": 0.05,
+
+        "__comment8__":"re3 parameters",
+        "re3_scale":0.15,
+
+        "__comment9__":"icm parameters",
+        "icm_beta":0.2,
+        "icm_reward_scaling":0.15,
+
+        "__comment10__":"noveld parameters",
+        "noveld_alpha":0.5,
+        "noveld_reward_scaling":0.15
+    },
+    "DelayedHalfCheetah-v1":
+    {
+        "__comment1__":"Env_parameters",
+        "env":"DelayedHalfCheetah-v1",
+        "n_steps": 1000,
+        "n_total_steps": 1000000,
+        "n_eval": 1,
+        "n_seeds": 5,
+        "delayed_level":20,
+
+        "__comment2__":"RL parameters",
+        "gamma": 0.99,
+        "learning_start": 10000,
+        "algorithm": "vaac(ac)",
+
+        "__comment3__":"Dynamics model parameters",
+        "latent_size": 50,
+
+        "__comment4__":"RND parameters",
+        "action_std_decay_freq": 50000,
+        "action_std_init": 0.6,
+        "action_std_decay_rate": 0.05,
+        "min_action_std": 0.1,
+        "max_grad_norm":0.5,
+        "clip_coef":0.2,
+        "ent_coef":0.01,
+        "vf_coef":0.5,
+        "k_epochs": 40,
+        "update_timestep": 4000,
+        "rnd_reward_scaling": 0.05,
+        
+        "__comment5__":"Off-policy parameters",
+        "reward_scale": 5,
+        "buffer_size": 1000000,
+        "tau": 0.005,
+        "batch_size": 256,
+        "actor_lr": 0.0003,
+        "critic_lr": 0.001,
+        "policy_frequency": 2,
+        "target_network_frequency": 1,
+
+        "__comment6__":"SAC parameters",
+        "alpha": 0.2,
+        "auto_tune": 1,
+
+        "__comment7__":"VAAC parameters",
+        "rnd_frequency":10000,
+        "rnd_reset":0,
+        "im_alpha": 0.2,
+        "im_beta": 0.05,
+        "beta_scheduling":0,
+        "beta_init":0.5,
+        "beta_decay_freq":1000,
+        "beta_decay_rate":0.01,
+        "min_beta": 0.1,
+
+        "__comment8__":"re3 parameters",
+        "re3_scale":0.05,
+
+        "__comment9__":"icm parameters",
+        "icm_beta":0.2,
+        "icm_reward_scaling":0.05,
+
+        "__comment10__":"noveld parameters",
+        "noveld_alpha":0.5,
+        "noveld_reward_scaling":0.05
     },
     "HumanoidStandup-v1":
     {
@@ -211,6 +545,7 @@
         "n_total_steps": 3000000,
         "n_eval": 1,
         "n_seeds": 5,
+        "sparsity_level":5,
 
         "__comment2__":"RL parameters",
         "gamma": 0.99,
@@ -303,258 +638,5 @@
         "beta_decay_freq":10000,
         "beta_decay_rate":0.001,
         "min_beta": 0.001
-    },
-    "DelayedHopper-v1":
-    {
-        "__comment1__":"Env_parameters",
-        "env":"DelayedHopper-v1",
-        "n_steps": 1000,
-        "n_total_steps": 1000000,
-        "n_eval": 1,
-        "n_seeds": 5,
-
-        "__comment2__":"RL parameters",
-        "gamma": 0.99,
-        "learning_start": 10000,
-        "algorithm": "vaac",
-
-        "__comment3__":"RND parameters",
-        "action_std_decay_freq": 50000,
-        "action_std_init": 0.6,
-        "action_std_decay_rate": 0.05,
-        "min_action_std": 0.1,
-        "max_grad_norm":0.5,
-        "clip_coef":0.2,
-        "ent_coef":0.01,
-        "vf_coef":0.5,
-        "k_epochs": 40,
-        "update_timestep": 4000,
-        
-        "__comment4__":"Off-policy parameters",
-        "reward_scale": 5,
-        "buffer_size": 1000000,
-        "tau": 0.005,
-        "batch_size": 256,
-        "actor_lr": 0.0003,
-        "critic_lr": 0.001,
-        "policy_frequency": 2,
-        "target_network_frequency": 1,
-
-        "__comment5__":"SAC parameters",
-        "alpha": 0.2,
-        "auto_tune": 1,
-
-        "__comment6__":"VAAC parameters",
-        "rnd_frequency":10000,
-        "im_alpha": 0.2,
-        "im_beta": 0.5,
-        "beta_scheduling":1,
-        "beta_init":1,
-        "beta_decay_freq":1000,
-        "beta_decay_rate":0.01,
-        "min_beta": 0.2
-    },
-    "DelayedWalker2d-v1":
-    {
-        "__comment1__":"Env_parameters",
-        "env":"DelayedWalker2d-v1",
-        "n_steps": 1000,
-        "n_total_steps": 1000000,
-        "n_eval": 1,
-        "n_seeds": 5,
-
-        "__comment2__":"RL parameters",
-        "gamma": 0.99,
-        "learning_start": 10000,
-        "algorithm": "vaac",
-
-        "__comment3__":"RND parameters",
-        "action_std_decay_freq": 50000,
-        "action_std_init": 0.6,
-        "action_std_decay_rate": 0.05,
-        "min_action_std": 0.1,
-        "max_grad_norm":0.5,
-        "clip_coef":0.2,
-        "ent_coef":0.01,
-        "vf_coef":0.5,
-        "k_epochs": 40,
-        "update_timestep": 4000,
-        
-        "__comment4__":"Off-policy parameters",
-        "rnd_frequency":10000,
-        "reward_scale": 5,
-        "buffer_size": 1000000,
-        "tau": 0.005,
-        "batch_size": 256,
-        "actor_lr": 0.0003,
-        "critic_lr": 0.001,
-        "policy_frequency": 2,
-        "target_network_frequency": 1,
-
-        "__comment5__":"SAC parameters",
-        "alpha": 0.2,
-        "auto_tune": 1,
-
-        "__comment6__":"VAAC parameters",
-        "im_alpha": 0.1,
-        "im_beta": 0.1,
-        "beta_scheduling":1,
-        "beta_init":0.5,
-        "beta_decay_freq":3000,
-        "beta_decay_rate":0.01,
-        "min_beta": 0.01
-    },
-    "DelayedAnt-v1":
-    {
-        "__comment1__":"Env_parameters",
-        "env":"DelayedAnt-v1",
-        "n_steps": 1000,
-        "n_total_steps": 5000000,
-        "n_eval": 1,
-        "n_seeds": 5,
-
-        "__comment2__":"RL parameters",
-        "gamma": 0.99,
-        "learning_start": 10000,
-        "algorithm": "vaac",
-
-        "__comment3__":"RND parameters",
-        "action_std_decay_freq": 50000,
-        "action_std_init": 0.6,
-        "action_std_decay_rate": 0.05,
-        "min_action_std": 0.1,
-        "max_grad_norm":0.5,
-        "clip_coef":0.2,
-        "ent_coef":0.01,
-        "vf_coef":0.5,
-        "k_epochs": 40,
-        "update_timestep": 4000,
-        
-        "__comment4__":"Off-policy parameters",
-        "reward_scale": 5,
-        "buffer_size": 1000000,
-        "tau": 0.005,
-        "batch_size": 256,
-        "actor_lr": 0.0003,
-        "critic_lr": 0.001,
-        "policy_frequency": 2,
-        "target_network_frequency": 1,
-
-        "__comment5__":"SAC parameters",
-        "alpha": 0.2,
-        "auto_tune": 1,
-
-        "__comment6__":"VAAC parameters",
-        "rnd_frequency":1000,
-        "rnd_reset":0,
-        "im_alpha": 0.2,
-        "im_beta": 0.1,
-        "beta_scheduling":0,
-        "beta_init":0.8,
-        "beta_decay_freq":1000,
-        "beta_decay_rate":0.01,
-        "min_beta": 0.01
-    },
-    "DelayedHalfCheetah-v1":
-    {
-        "__comment1__":"Env_parameters",
-        "env":"DelayedHalfCheetah-v1",
-        "n_steps": 1000,
-        "n_total_steps": 1000000,
-        "n_eval": 1,
-        "n_seeds": 5,
-
-        "__comment2__":"RL parameters",
-        "gamma": 0.99,
-        "learning_start": 10000,
-        "algorithm": "vaac",
-
-        "__comment3__":"RND parameters",
-        "action_std_decay_freq": 50000,
-        "action_std_init": 0.6,
-        "action_std_decay_rate": 0.05,
-        "min_action_std": 0.1,
-        "max_grad_norm":0.5,
-        "clip_coef":0.2,
-        "ent_coef":0.01,
-        "vf_coef":0.5,
-        "k_epochs": 40,
-        "update_timestep": 4000,
-        
-        "__comment4__":"Off-policy parameters",
-        "reward_scale": 5,
-        "buffer_size": 1000000,
-        "tau": 0.005,
-        "batch_size": 256,
-        "actor_lr": 0.0003,
-        "critic_lr": 0.001,
-        "policy_frequency": 2,
-        "target_network_frequency": 1,
-
-        "__comment5__":"SAC parameters",
-        "alpha": 0.2,
-        "auto_tune": 1,
-
-        "__comment6__":"VAAC parameters",
-        "rnd_frequency":10000,
-        "im_alpha": 0.2,
-        "im_beta": 0.5,
-        "beta_scheduling":1,
-        "beta_init":0.5,
-        "beta_decay_freq":1000,
-        "beta_decay_rate":0.01,
-        "min_beta": 0.1
-    },
-    "ContinuousGridWorld":
-    {
-        "__comment1__":"Env_parameters",
-        "env":"ContinuousGridWorld",
-        "map": 0,
-        "n_steps": 1000,
-        "n_total_steps": 500000,
-        "n_iter_seed": 30,
-
-        "__comment2__":"RL parameters",
-        "gamma": 0.99,
-        "learning_start": 1000,
-        "algorithm": "vaac",
-
-        "__comment3__":"RND parameters",
-        "action_std_decay_freq": 10000,
-        "action_std_init": 2.0,
-        "action_std_decay_rate": 0.05,
-        "min_action_std": 0.1,
-        "max_grad_norm":0.5,
-        "clip_coef":0.2,
-        "ent_coef":0.01,
-        "vf_coef":0.5,
-        "k_epochs": 80,
-        "update_timestep": 4000,
-        
-        "__comment4__":"Off-policy parameters",
-        "reward_scale": 5,
-        "buffer_size": 1000000,
-        "tau": 0.005,
-        "batch_size": 256,
-        "actor_lr": 0.0003,
-        "critic_lr": 0.001,
-        "policy_frequency": 2,
-        "target_network_frequency": 1,
-
-        "__comment5__":"SAC parameters",
-        "alpha": 0.5,
-        "auto_tune": 0,
-
-        "__comment6__":"VAAC parameters",
-        "rnd_frequency":1000,
-        "rnd_reset":1,
-        "im_alpha": 1,
-        "im_beta": 3,
-        "beta_scheduling":0,
-        "beta_init":1,
-        "beta_decay_freq":1000,
-        "beta_decay_rate":0.01,
-        "min_beta": 0.05,
-        "no_offset":1
     }
 }
