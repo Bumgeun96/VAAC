@@ -4,17 +4,9 @@ import torch
 import numpy as np
 import random
 from datetime import datetime
-from algorithm.sac import SAC_agent
-from algorithm.vaac import VAAC_agent
-from algorithm.vaac_ac import VAAC_agent_ac
-from algorithm.vaac_rnd import VAAC_rnd_agent
 from algorithm.jta import jta_agent
 from algorithm.PPO import PPO
 from algorithm.ppo import ppo
-from algorithm.re3 import re3_agent
-from algorithm.sac_icm import SAC_icm_agent
-from algorithm.sac_rnd import sac_rnd_agent
-from algorithm.sac_noveld import sac_noveld_agent
 from distutils.util import strtobool
 from collections import defaultdict
 import json
@@ -203,22 +195,31 @@ def random_seed(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+
 def loading_algorithm(env,args):
     if args.algorithm == 'sac':
+        from algorithm.sac import SAC_agent
         agent = SAC_agent(env,args)
     elif args.algorithm == 'vaac':
+        from algorithm.vaac import VAAC_agent
         agent = VAAC_agent(env,args)
     elif args.algorithm == 'vaac(ac)':
+        from algorithm.vaac_ac import VAAC_agent_ac
         agent = VAAC_agent_ac(env,args)
     elif args.algorithm == 'vaac_rnd':
+        from algorithm.vaac_rnd import VAAC_rnd_agent
         agent = VAAC_rnd_agent(env,args)
     elif args.algorithm == 'rnd':
+        from algorithm.sac_rnd import sac_rnd_agent
         agent = sac_rnd_agent(env,args)
     elif args.algorithm == 're3':
+        from algorithm.re3 import re3_agent
         agent = re3_agent(env,args)
     elif args.algorithm == 'icm':
+        from algorithm.sac_icm import SAC_icm_agent
         agent = SAC_icm_agent(env,args)
     elif args.algorithm == 'noveld':
+        from algorithm.sac_noveld import sac_noveld_agent
         agent = sac_noveld_agent(env,args)
     elif args.algorithm == 'jta':
         agent = jta_agent(env,args)

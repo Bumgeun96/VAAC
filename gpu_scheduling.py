@@ -5,9 +5,9 @@ import torch
 def gpu_auto(type = 'gpu'):
     memory = []
     gpu = []
-    nvmlInit()
     num_gpu = torch.cuda.device_count()
     for i in range(num_gpu):
+        nvmlInit()
         handle = nvmlDeviceGetHandleByIndex(i)
         info = nvmlDeviceGetMemoryInfo(handle)
         utilization = nvmlDeviceGetUtilizationRates(handle)
@@ -15,7 +15,7 @@ def gpu_auto(type = 'gpu'):
         gpu_percent = utilization.gpu
         memory.append(memory_percent)
         gpu.append(gpu_percent)
-    nvmlShutdown()
+        nvmlShutdown()
     if type == 'gpu':
         temp = gpu
     elif type == 'memory':
