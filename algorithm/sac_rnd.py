@@ -11,9 +11,7 @@ from rl_utils.replay_memory import ReplayMemory as memory
 
 import os
 from gpu_scheduling import gpu_auto
-idx = gpu_auto()
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]= str(idx)
+IDX = gpu_auto()
 
 
 class sac_rnd_agent():
@@ -48,7 +46,7 @@ class sac_rnd_agent():
                                     self.seed)
         
         
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device('cuda:'+str(IDX) if torch.cuda.is_available() else "cpu")
         self.rnd = rnd(environment,self.latent_size).to(self.device)
         self.rnd_optimizer = optim.Adam(self.rnd.model.parameters(),lr=self.critic_lr)
         self.actor = Actor(environment).to(self.device)

@@ -11,9 +11,7 @@ from rl_utils.replay_memory import ReplayMemory as memory
 
 import os
 from gpu_scheduling import gpu_auto
-idx = gpu_auto()
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]= str(idx)
+IDX = gpu_auto()
 
 class VAAC_agent_ac():
     def __init__(self,environment,args):
@@ -65,7 +63,7 @@ class VAAC_agent_ac():
             pass
         
         
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device('cuda:'+str(IDX) if torch.cuda.is_available() else "cpu")
 
         self.random_encoder = re3(self.latent_size,self.latent_size).to(self.device)
 
