@@ -99,7 +99,7 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval,policy_frequency):
+def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval,policy_frequency,seed):
     total_step = 0
     random_seed = random.randint(0,200)
     try:
@@ -133,13 +133,13 @@ def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval,policy
             score += reward
             if total_step % 1000 == 0:
                 try:
-                    torch.save(agent.actor.state_dict(),"./model/("+ENV+","+algo_args.algorithm+")policy.pt")
+                    torch.save(agent.actor.state_dict(),"./model/("+ENV+","+algo_args.algorithm+")policy"+str(seed)+".pt")
                     print('========================================')
                     now = datetime.now()
                     print('[',now.hour,':',now.minute,':',now.second,']','steps:',total_step + step)
                     Eval = True
                 except:
-                    torch.save(agent.policy.actor.state_dict(),"./model/("+ENV+","+algo_args.algorithm+")policy.pt")
+                    torch.save(agent.policy.actor.state_dict(),"./model/("+ENV+","+algo_args.algorithm+")policy"+str(seed)+".pt")
                     print('========================================')
                     now = datetime.now()
                     print('[',now.hour,':',now.minute,':',now.second,']','steps:',total_step + step)
@@ -156,9 +156,9 @@ def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval,policy
         
 def eval(eval_env,n_eval,total_step):
     try:
-        eval_agent.actor.load_state_dict(torch.load("./model/("+ENV+","+algo_args.algorithm+")policy.pt"))
+        eval_agent.actor.load_state_dict(torch.load("./model/("+ENV+","+algo_args.algorithm+")policy"+str(seed)+".pt"))
     except:
-        eval_agent.policy.actor.load_state_dict(torch.load("./model/("+ENV+","+algo_args.algorithm+")policy.pt"))
+        eval_agent.policy.actor.load_state_dict(torch.load("./model/("+ENV+","+algo_args.algorithm+")policy"+str(seed)+".pt"))
     returns = 0
     step = 0
     for _ in range(n_eval):
@@ -295,5 +295,6 @@ if __name__ == "__main__":
               algo_args.n_steps,
               algo_args.n_total_steps,
               algo_args.n_eval,
-              algo_args.policy_frequency)
+              algo_args.policy_frequency,
+              seed)
         wandb.finish()
