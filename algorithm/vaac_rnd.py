@@ -1,4 +1,3 @@
-# docs and experiment results can be found at https://docs.cleanrl.dev/rl-algorithms/sac/#sac_continuous_actionpy
 import random
 import numpy as np
 from collections import defaultdict
@@ -7,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from rl_utils.network import SoftQNetwork,Actor
+from rl_utils.network import SoftQNetwork,Actor,Virtual_Actor,dynamics_model,rnd
 from rl_utils.replay_memory import ReplayMemory as memory
 
 import os
@@ -17,11 +16,9 @@ os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]= str(idx)
 
 
-
-class SAC_agent():
+class VAAC_rnd_agent():
     def __init__(self,environment,args):
         # Initialize with args
-        self.algo = args.algo
         self.seed = args.seed
         self.buffer_size = args.buffer_size
         self.gamma = args.gamma
@@ -33,8 +30,15 @@ class SAC_agent():
         self.policy_frequency = args.policy_frequency
         self.target_network_frequency = args.target_network_frequency
         self.alpha = args.alpha
+        self.im_alpha = args.im_alpha
+        self.beta = args.im_beta
         self.auto_tune = args.auto_tune
-
+        self.beta_scheduling = args.beta_scheduling
+        self.beta_init = args.beta_init
+        self.beta_decay_freq = args.beta_decay_freq
+        self.beta_decay_rate = args.beta_decay_rate
+        self.min_beta = args.min_beta
+        self.latent_size = args.latent_size
         self.global_step = 0
         self.env = environment
         self.action_shape = environment.action_space.shape[0]
@@ -45,17 +49,22 @@ class SAC_agent():
         torch.manual_seed(self.seed)
         torch.backends.cudnn.deterministic = True
         
-        self.replay_memory = memory(self.buffer_size,self.batch_size,self.seed)
-        self.visit = defaultdict(lambda: np.zeros(1))
-        try:
-            self.env_row_max = environment.row_max
-            self.env_col_max = environment.col_max
-        except:
-            pass
+        self.replay_memory = memory(self.buffer_size,
+                                    self.batch_size,
+                                    self.seed)
+        self.log_pi_memory = []
         
         
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
+
+        self.rnd = rnd(environment,self.latent_size,input_size=self.latent_size).to(self.device)
+        self.rnd_optimizer = optim.Adam(self.rnd.model.parameters(),lr=self.critic_lr)
+    
+        self.dynamics = dynamics_model(environment,self.latent_size).to(self.device)
+        self.dynamics_target = dynamics_model(environment,self.latent_size).to(self.device)
+        self.dynamics_target.load_state_dict(self.dynamics.state_dict())
+        self.dynamics_optimizer = optim.Adam(self.dynamics.parameters(),lr = 0.001,weight_decay=0.0000)
+
         self.actor = Actor(environment).to(self.device)
         self.critic1 = SoftQNetwork(environment).to(self.device)
         self.critic2 = SoftQNetwork(environment).to(self.device)
@@ -68,35 +77,82 @@ class SAC_agent():
         
         if self.auto_tune:
             self.target_entropy = -torch.prod(torch.Tensor(environment.action_space.shape).to(self.device)).item()
-            self.log_alpha = torch.tensor(-0.5, requires_grad=True, device=self.device)
+            self.log_alpha = torch.zeros(1, requires_grad=True, device=self.device)
             self.alpha = self.log_alpha.exp().item()
             self.a_optimizer = optim.Adam([self.log_alpha], lr=self.critic_lr)
         else:
             self.alpha = self.alpha
         
+        if self.beta_scheduling:
+            self.beta = args.beta_init
+        
+        self.virtual_actor = Virtual_Actor(environment).to(self.device)
+        self.virtual_actor_optimizer = optim.Adam(self.virtual_actor.parameters(), lr=0.001)
             
     def action(self,state):
         if self.global_step < self.learning_start:
             action = torch.rand(self.action_shape, ) * 2 - 1
+            # self.store_logpi(-10)
         else:
             state = state.to(self.device)
-            action, _, _ = self.actor.get_action(state)
+            action, log_pi, _ = self.actor.get_action(state)
+            # self.store_logpi(log_pi.item())
         self.global_step += 1
         return action
+    
+    def store_logpi(self,log_pi):
+        self.log_pi_memory.append(log_pi)
     
     def deterministic_act(self,state):
         _, _, deterministic_action = self.actor.get_action(state)
         return deterministic_action
     
-    def store_experience(self,state,action,reward,next_state,terminal,_=None):
+    def store_experience(self,state,action,reward,next_state,terminal,total_step):
+        # feature = self.random_encoder(state).detach()
         self.replay_memory.add(state,action,reward,next_state,terminal)
+
         
     def soft_update(self, local_model, target_model):
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*target_param.data)
-        
+
+    def dynamics_training(self,states,actions,next_states):
+        z = self.dynamics(states,actions)
+        with torch.no_grad():
+            z_prime = self.dynamics_target(next_states)
+        d_loss = F.mse_loss(z,z_prime)
+        self.dynamics_optimizer.zero_grad()
+        d_loss.backward()
+        self.dynamics_optimizer.step()
+        return d_loss.item()
+    
+    def virtual_actor_training(self,states):
+        im_action, log_im_action, _ = self.virtual_actor.virtual_action(states)
+        rnd_bonus = self.rnd.get_reward(self.dynamics_target(states,im_action))
+        virtual_loss = (self.im_alpha*log_im_action-rnd_bonus).mean()
+        self.virtual_actor_optimizer.zero_grad()
+        virtual_loss.backward()
+        self.virtual_actor_optimizer.step()
+        return virtual_loss.item()
+    
+    def novelty_diff(self,states,next_states):
+        state_novelty = self.rnd.get_reward(self.dynamics_target(states))
+        next_state_novelty = self.rnd.get_reward(self.dynamics_target(next_states))
+        sum_novelty_diff = (next_state_novelty-state_novelty).sum().item()
+        mean_novelty_diff = torch.abs(next_state_novelty-state_novelty).mean().item()
+        return sum_novelty_diff, mean_novelty_diff
+
+    def rnd_update(self,rnd_reward):
+        loss = rnd_reward.sum()
+        self.rnd_optimizer.zero_grad()
+        loss.backward()
+        self.rnd_optimizer.step()
+        return loss.item()
+
     def training(self,wandb=None):
         if self.global_step > self.learning_start:
+             
+            # batch sampling
             experiences = self.replay_memory.sample()
             states, actions, rewards, next_states, terminations = experiences
             states = states.to(self.device)
@@ -104,12 +160,22 @@ class SAC_agent():
             rewards = rewards.to(self.device)
             next_states = next_states.to(self.device)
             terminations = terminations.to(self.device)
+            rnd_bonus = self.rnd.get_reward(self.dynamics_target(states))
+            rnd_loss = self.rnd_update(rnd_bonus)
+
+            # env training
+            env_loss = self.dynamics_training(states,actions,next_states)
+            if self.global_step % 1000 == 0:
+                wandb.log({"rnd loss":rnd_loss},step = self.global_step)
+                wandb.log({"env loss": env_loss},step = self.global_step)
             
+            # q function training
             with torch.no_grad():
                 next_actions, next_state_log_pi, _ = self.actor.get_action(next_states)
+                _, im_next_state_log_pi, _ = self.virtual_actor.virtual_action(next_states)
                 q1_target = self.critic_target1(next_states,next_actions)
                 q2_target = self.critic_target2(next_states,next_actions)
-                next_Q = torch.min(q1_target,q2_target) - self.alpha*next_state_log_pi
+                next_Q = torch.min(q1_target,q2_target) - self.alpha*next_state_log_pi + self.beta*(im_next_state_log_pi-((im_next_state_log_pi).mean()/(im_next_state_log_pi).std()).detach())
                 target = rewards+(1-terminations)*self.gamma*next_Q
 
             q1 = self.critic1(states,actions)
@@ -122,22 +188,32 @@ class SAC_agent():
             q_loss.backward()
             self.critic_optimizer.step()
             if self.global_step % 1000 == 0:
+                sum_novelty_diff, novelty_diff = self.novelty_diff(states,next_states)
+                wandb.log({"novelty diff": novelty_diff},step=self.global_step)
+                wandb.log({"sum novelty diff": sum_novelty_diff},step=self.global_step)
                 wandb.log({"q loss": q_loss.item()},step=self.global_step)
+
+            
+            if self.beta_scheduling and self.global_step % self.beta_decay_freq == 0:
+                self.beta -= self.beta_decay_rate
+                self.beta = max(self.beta,self.min_beta)
             
             # TD3 delayed update
             if self.global_step % self.policy_frequency == 0:
                 for _ in range(self.policy_frequency):
+                    virtual_loss = self.virtual_actor_training(states)
                     pi, log_pi, _ = self.actor.get_action(states)
                     q1_pi = self.critic1(states,pi)
                     q2_pi = self.critic2(states,pi)
                     q_pi = torch.min(q1_pi,q2_pi).view(-1)
-                    actor_loss = ((self.alpha*log_pi)-q_pi).mean()
-                    
+            
+                    actor_loss = (((self.alpha)*log_pi)-q_pi).mean()  
                     self.actor_optimizer.zero_grad()
                     actor_loss.backward()
                     self.actor_optimizer.step()
                     if self.global_step % 1000 == 0:
                         wandb.log({"actor loss":actor_loss,
+                                "virtual actor loss":virtual_loss,
                                 "alpha":self.alpha},
                                 step=self.global_step)
                     
@@ -147,14 +223,14 @@ class SAC_agent():
                         alpha_loss = (-self.log_alpha*(log_pi+self.target_entropy)).mean()
                         self.a_optimizer.zero_grad()
                         alpha_loss.backward()
-                        torch.nn.utils.clip_grad_norm_(self.a_optimizer.param_groups[0]['params'], 1)
                         self.a_optimizer.step()
                         self.alpha = self.log_alpha.exp().item()
-            
+                        
             if self.global_step % self.target_network_frequency == 0:
                 self.soft_update(self.critic1,self.critic_target1)
                 self.soft_update(self.critic2,self.critic_target2)
-                
+                self.soft_update(self.dynamics,self.dynamics_target)
+    
     def q_eval(self,state,action):
         state = torch.tensor(state).to(self.device)
         action = torch.tensor(action).to(self.device)

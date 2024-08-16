@@ -7,6 +7,7 @@ from datetime import datetime
 from algorithm.sac import SAC_agent
 from algorithm.vaac import VAAC_agent
 from algorithm.vaac_ac import VAAC_agent_ac
+from algorithm.vaac_rnd import VAAC_rnd_agent
 from algorithm.jta import jta_agent
 from algorithm.PPO import PPO
 from algorithm.ppo import ppo
@@ -22,7 +23,7 @@ import wandb
 
 ENV = "SparseHopper-v1"
 # ENV = "SparseAnt-v1"
-# ENV = "SparseWalker2d-v1"
+ENV = "SparseWalker2d-v1"
 # ENV = "SparseHalfCheetah-v1"
 # ENV = "HumanoidStandup-v1"
 # ENV = "Humanoid-v1"
@@ -209,6 +210,8 @@ def loading_algorithm(env,args):
         agent = VAAC_agent(env,args)
     elif args.algorithm == 'vaac(ac)':
         agent = VAAC_agent_ac(env,args)
+    elif args.algorithm == 'vaac_rnd':
+        agent = VAAC_rnd_agent(env,args)
     elif args.algorithm == 'rnd':
         agent = sac_rnd_agent(env,args)
     elif args.algorithm == 're3':
@@ -248,6 +251,7 @@ if __name__ == "__main__":
         seeds.append(10+10*s)
     return_values = defaultdict(list)
     returns = []
+    seeds = [10,40,50]
     for seed in seeds:
         algo_args.seed = seed
         random_seed(seed)

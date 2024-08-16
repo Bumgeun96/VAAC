@@ -45,9 +45,10 @@ class re3(nn.Module):
         return state_entropy.unsqueeze(1)
     
 class rnd(nn.Module):
-    def __init__(self,env,latent_size):
+    def __init__(self,env,latent_size,input_size = None):
         super().__init__()
-        input_size = env.observation_space.shape[0]
+        if input_size == None:
+            input_size = env.observation_space.shape[0]
         self.model = nn.Sequential(
             nn.Linear(input_size,256),
             nn.ReLU(),

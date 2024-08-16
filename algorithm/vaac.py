@@ -10,6 +10,13 @@ from rl_utils.network import SoftQNetwork,Actor,Virtual_Actor,dynamics_model,re3
 from rl_utils.replay_memory import ReplayMemory as memory
 
 
+import os
+from gpu_scheduling import gpu_auto
+idx = gpu_auto()
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]= str(idx)
+
+
 class VAAC_agent():
     def __init__(self,environment,args):
         # Initialize with args
