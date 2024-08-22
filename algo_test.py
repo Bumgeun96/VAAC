@@ -235,7 +235,6 @@ if __name__ == "__main__":
         seeds.append(10+10*s)
     return_values = defaultdict(list)
     returns = []
-    seeds = [10,20,30]
     for seed in seeds:
         algo_args.seed = seed
         random_seed(seed)
@@ -249,7 +248,7 @@ if __name__ == "__main__":
             level = algo_args.delayed_level
         if algo_args.actor_critic == 'vanilla':
             wandb.init(
-            project = algo_args.algorithm,
+            project = algo_args.algorithm+"(ac)",
             config = temp,
             name = ENV+"("+algo_args.algorithm+", level: "+str(level)+"),seed:"+str(algo_args.seed)
             )
