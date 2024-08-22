@@ -16,18 +16,20 @@ import wandb
 ENV = "SparseHopper-v1"
 # ENV = "SparseAnt-v1"
 ENV = "SparseWalker2d-v1"
-# ENV = "SparseHalfCheetah-v1"
+ENV = "SparseHalfCheetah-v1"
 # ENV = "HumanoidStandup-v1"
 # ENV = "Humanoid-v1"
-# ENV = "DelayedHopper-v1"
+ENV = "DelayedHopper-v1"
 # ENV = "DelayedAnt-v1"
 # ENV = "DelayedWalker2d-v1"
-# ENV = "DelayedHalfCheetah-v1"
+ENV = "DelayedHalfCheetah-v1"
 def parse_args():
     with open('parameters.json','r') as file:
         parameters = json.load(file)
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed',type=int,default=10)
+    parser.add_argument('--mode',type=str,default='normal')
+    parser.add_argument('--actor_critic',type=str,default='sac')
 
     # ENV hyperparameters
     parser.add_argument("--n_steps",type=int,default=parameters[ENV]['n_steps'])
@@ -99,7 +101,21 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval,policy_frequency,seed):
+def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval,policy_frequency,seed,mode):
+    no_reward = False
+    path = "./model/("+ENV+","+algo_args.algorithm+")policy"+str(seed)+".pt"
+    if mode == 'normal':
+        pass
+    elif mode == 'pretraining':
+        no_reward = True
+        path = "./model/("+ENV+","+algo_args.algorithm+")pretrained_policy.pt"
+    elif mode == 'finetuning':
+        try:
+            agent.actor.load_state_dict(torch.load("./model/("+ENV+","+algo_args.algorithm+")pretrained_policy.pt"))
+        except FileNotFoundError:
+            raise Exception('There is no pretreined model. Pretrain first.')
+
+    
     total_step = 0
     random_seed = random.randint(0,200)
     try:
@@ -121,32 +137,21 @@ def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval,policy
             next_state, reward, done, truncated = env.step(action)
             next_state = next_state.reshape((1,state_size))
             next_state = torch.tensor(next_state[0],dtype=torch.float32)
-            ################################################################
-            # reward = 0
-            ################################################################
+            if no_reward:
+                reward = 0
             agent.store_experience(state, action, reward, next_state, done,total_step)
             agent.training(wandb)
-            ################################################################
-            # saving_buffer(state,action,next_state,total_step)
-            ################################################################
             state = next_state
             score += reward
             if total_step % 1000 == 0:
-                try:
-                    torch.save(agent.actor.state_dict(),"./model/("+ENV+","+algo_args.algorithm+")policy"+str(seed)+".pt")
-                    print('========================================')
-                    now = datetime.now()
-                    print('[',now.hour,':',now.minute,':',now.second,']','steps:',total_step + step)
-                    Eval = True
-                except:
-                    torch.save(agent.policy.actor.state_dict(),"./model/("+ENV+","+algo_args.algorithm+")policy"+str(seed)+".pt")
-                    print('========================================')
-                    now = datetime.now()
-                    print('[',now.hour,':',now.minute,':',now.second,']','steps:',total_step + step)
-                    Eval = True
+                torch.save(agent.actor.state_dict(),path)
+                print('========================================')
+                now = datetime.now()
+                print('[',now.hour,':',now.minute,':',now.second,']','steps:',total_step + step)
+                Eval = True
             if done or step>=1000:
                 if Eval:
-                    eval(eval_env,n_eval,total_step)
+                    eval(eval_env,n_eval,total_step,path)
                     Eval = False
                 break
         wandb.log({"episode reward":score},step=total_step)
@@ -154,11 +159,8 @@ def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval,policy
             break
     return returns
         
-def eval(eval_env,n_eval,total_step):
-    try:
-        eval_agent.actor.load_state_dict(torch.load("./model/("+ENV+","+algo_args.algorithm+")policy"+str(seed)+".pt"))
-    except:
-        eval_agent.policy.actor.load_state_dict(torch.load("./model/("+ENV+","+algo_args.algorithm+")policy"+str(seed)+".pt"))
+def eval(eval_env,n_eval,total_step,path):
+    eval_agent.actor.load_state_dict(torch.load(path))
     returns = 0
     step = 0
     for _ in range(n_eval):
@@ -167,11 +169,8 @@ def eval(eval_env,n_eval,total_step):
         while True:
             step += 1
             local_step += 1
-            state = torch.tensor(state[0],dtype=torch.float32).to('cuda')
-            try:
-                action = eval_agent.deterministic_act(state).cpu().detach().numpy()
-            except:
-                action = eval_agent.policy.deterministic_act(state).cpu().detach().numpy()
+            state = torch.tensor(state[0],dtype=torch.float32).to(agent.device)
+            action = eval_agent.deterministic_act(state).cpu().detach().numpy()
             action = np.clip(action*action_high, action_low, action_high)
             if local_step == 1:
                 q_eval = agent.q_eval(state,action)
@@ -227,22 +226,6 @@ def loading_algorithm(env,args):
         raise ValueError(args.algorithm)
     return agent
 
-
-# import csv
-# f = open('buffer.csv', 'w',newline='')
-# writer = csv.writer(f)
-
-
-# def saving_buffer(state,action,next_state,total_step):
-#     state = state.tolist()
-#     action = action.tolist()
-#     next_state = next_state.tolist()
-#     writer.writerow([state, action, next_state])
-#     if total_step >= 500000:
-#         f.close()
-#         raise Exception("Save buffer")
-
-
 if __name__ == "__main__":
     algo_args = parse_args()
     env_name = ENV
@@ -252,7 +235,7 @@ if __name__ == "__main__":
         seeds.append(10+10*s)
     return_values = defaultdict(list)
     returns = []
-    seeds = [10,40,50]
+    seeds = [10,20,30]
     for seed in seeds:
         algo_args.seed = seed
         random_seed(seed)
@@ -264,16 +247,18 @@ if __name__ == "__main__":
             level = algo_args.sparsity_level
         elif "Delayed" in env_name:
             level = algo_args.delayed_level
-        wandb.init(
+        if algo_args.actor_critic == 'vanilla':
+            wandb.init(
             project = algo_args.algorithm,
             config = temp,
             name = ENV+"("+algo_args.algorithm+", level: "+str(level)+"),seed:"+str(algo_args.seed)
-        )
-        # wandb.init(
-        #     project = "test",
-        #     config = temp,
-        #     name = ENV+"("+algo_args.algorithm+", level: "+str(algo_args.sparsity_level)+"),seed:"+str(algo_args.seed)
-        # )
+            )
+        elif algo_args.actor_critic == 'sac':
+            wandb.init(
+                project = algo_args.algorithm,
+                config = temp,
+                name = ENV+"("+algo_args.algorithm+", level: "+str(level)+"),seed:"+str(algo_args.seed)
+            )
 
         if 'Delayed' in env_name:
             env = GymEnvDelayed(env_name.replace('Delayed',''),seed = seed,delay=algo_args.delayed_level)
@@ -296,5 +281,6 @@ if __name__ == "__main__":
               algo_args.n_total_steps,
               algo_args.n_eval,
               algo_args.policy_frequency,
-              seed)
+              seed,
+              algo_args.mode)
         wandb.finish()

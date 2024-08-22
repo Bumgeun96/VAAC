@@ -32,6 +32,10 @@ class re3_agent():
         self.global_step = 0
         self.env = environment
         self.action_shape = environment.action_space.shape[0]
+        if args.actor_critic == 'sac':
+            self.ac_type = 1
+        elif args.actor_critic == 'vanilla':
+            self.ac_type = 0
         
         # Set a random seed
         random.seed(self.seed)
@@ -112,7 +116,7 @@ class re3_agent():
                 q2_target = self.critic_target2(next_states,next_actions)
                 target = self.re3_scale*re3_score+rewards+\
                     (1-terminations)*self.gamma*\
-                        (torch.min(q1_target,q2_target) - self.alpha*next_state_log_pi)
+                        (torch.min(q1_target,q2_target) - self.ac_type*self.alpha*next_state_log_pi)
             q1 = self.critic1(states,actions)
             q2 = self.critic2(states,actions)
             q1_loss = F.mse_loss(q1,target)

@@ -36,6 +36,11 @@ class SAC_agent():
         self.global_step = 0
         self.env = environment
         self.action_shape = environment.action_space.shape[0]
+
+        if args.actor_critic == 'sac':
+            self.ac_type = 1
+        elif args.actor_critic == 'vanilla':
+            self.ac_type = 0
         
         # Set a random seed
         random.seed(self.seed)
@@ -106,7 +111,7 @@ class SAC_agent():
                 next_actions, next_state_log_pi, _ = self.actor.get_action(next_states)
                 q1_target = self.critic_target1(next_states,next_actions)
                 q2_target = self.critic_target2(next_states,next_actions)
-                next_Q = torch.min(q1_target,q2_target) - self.alpha*next_state_log_pi
+                next_Q = torch.min(q1_target,q2_target) - self.ac_type*self.alpha*next_state_log_pi
                 target = rewards+(1-terminations)*self.gamma*next_Q
 
             q1 = self.critic1(states,actions)
