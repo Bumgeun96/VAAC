@@ -114,6 +114,8 @@ def train(env,eval_env, agent, n_episodes, max_step,training_steps,n_eval,policy
             agent.actor.load_state_dict(torch.load("./model/("+ENV+","+algo_args.algorithm+")pretrained_policy.pt"))
         except FileNotFoundError:
             raise Exception('There is no pretreined model. Pretrain first.')
+    else:
+        raise Exception('Wrong mode!')
 
     
     total_step = 0
